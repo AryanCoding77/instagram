@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Instagram",
+    "slug": "reel-insights-analytics",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.instagramanalytics.reelinsights"
+    },
+    "android": {
+      "package": "com.instagramanalytics.reelinsights",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/logo.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/logo.png"
+      },
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you add custom thumbnails."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1d3796c3-68f2-468e-9d46-b9868df6fff4"
+      }
+    },
+    "owner": "aryancoding77"
+  }
+}
