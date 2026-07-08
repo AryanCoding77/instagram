@@ -15,7 +15,8 @@ export default function BottomTabBar({ activeTab = "home" }) {
   const { dispatch } = useReelData();
 
   return (
-    <View style={[styles.bar, { height: totalHeight, paddingBottom: insets.bottom }]}>
+    <View style={[styles.bar, { height: totalHeight }]}>
+      <View style={styles.row}>
       {/* Tab 1 - Home */}
       <TouchableOpacity
         activeOpacity={0.7}
@@ -66,7 +67,11 @@ export default function BottomTabBar({ activeTab = "home" }) {
       </TouchableOpacity>
 
       {/* Tab 3 - Send (share.svg — outline paper plane, black border + white fill cutout) */}
-      <TouchableOpacity activeOpacity={0.7} style={styles.tabBtn}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        style={styles.tabBtn}
+        onPress={() => dispatch({ type: "SET_SCREEN", value: "professionalDashboard" })}
+      >
         <View style={styles.iconBadgeWrapper}>
           <Svg
             viewBox="720 375 620 570"
@@ -135,6 +140,8 @@ export default function BottomTabBar({ activeTab = "home" }) {
           {activeTab !== "profile" && <View style={styles.redDotProfile} />}
         </View>
       </TouchableOpacity>
+      </View>
+      <View style={[styles.bottomInset, { height: insets.bottom }]} />
     </View>
   );
 }
@@ -146,17 +153,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: C.white,
-    borderTopWidth: 0.5,
-    borderTopColor: C.border,
+    zIndex: 100,
+  },
+  row: {
+    height: BAR_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    zIndex: 100,
+    borderTopWidth: 0.5,
+    borderTopColor: C.border,
   },
   tabBtn: {
     flex: 1,
     height: BAR_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
+  },
+  bottomInset: {
+    backgroundColor: C.white,
   },
   iconBadgeWrapper: {
     position: "relative",
