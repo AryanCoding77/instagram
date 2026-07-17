@@ -11,9 +11,12 @@ import {
 import { GrandHotel_400Regular } from "@expo-google-fonts/grand-hotel";
 import { Poppins_400Regular, Poppins_500Medium } from "@expo-google-fonts/poppins";
 import { View, ActivityIndicator } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import HomeScreen from "./src/screens/HomeScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import PostsScreen from "./src/screens/PostsScreen";
+import ReelsScreen from "./src/screens/ReelsScreen";
 import ReelInsightsScreen from "./src/screens/ReelInsightsScreen";
 import ProfessionalDashboardScreen from "./src/screens/ProfessionalDashboardScreen";
 import InsightsDetailScreen from "./src/screens/InsightsDetailScreen";
@@ -24,6 +27,10 @@ function MainNavigator() {
   switch (state.currentScreen) {
     case "profile":
       return <ProfileScreen />;
+    case "posts":
+      return <PostsScreen />;
+    case "reels":
+      return <ReelsScreen />;
     case "insights":
       return <ReelInsightsScreen />;
     case "professionalDashboard":
@@ -50,18 +57,22 @@ export default function App() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#DD2A7B" />
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color="#DD2A7B" />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <SafeAreaProvider>
-      <ReelDataProvider>
-        <MainNavigator />
-      </ReelDataProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ReelDataProvider>
+          <MainNavigator />
+        </ReelDataProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

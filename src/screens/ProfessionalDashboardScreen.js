@@ -47,33 +47,18 @@ function GearIcon({ size = 24, color = "currentColor" }) {
 }
 
 function PlayBadgeIcon({ size = 18 }) {
+  const assetSource = require("../../assets/icons/reels-icon.png");
+
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Defs>
-        <Mask id="play-badge-cutout">
-          <Rect x="0" y="0" width="24" height="24" fill="white" />
-          <Path d="M10 8.5L16 12L10 15.5V8.5Z" fill="black" />
-        </Mask>
-      </Defs>
-      <Rect x="1.5" y="1.5" width="21" height="21" rx="5.5" fill={C.white} mask="url(#play-badge-cutout)" />
-    </Svg>
+    <Image source={assetSource} style={{ width: size, height: size }} resizeMode="contain" />
   );
 }
 
 function FirstThumbBadgeIcon({ size = 20 }) {
+  const assetSource = require("../../assets/icons/story-icon.png");
+
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle
-        cx="12"
-        cy="12"
-        r="7.2"
-        stroke={C.white}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeDasharray="34 10"
-        transform="rotate(-20 12 12)"
-      />
-    </Svg>
+    <Image source={assetSource} style={{ width: size, height: size }} resizeMode="contain" />
   );
 }
 
@@ -122,9 +107,23 @@ export default function ProfessionalDashboardScreen() {
         </View>
 
         <View style={styles.statsRow}>
-          {INSIGHT_STATS.map((item) => (
-            <View key={item.label} style={styles.statCol}>
-              <Text style={styles.statLabel}>{item.label}</Text>
+          {INSIGHT_STATS.map((item, index) => (
+            <View
+              key={item.label}
+              style={[
+                styles.statCol,
+                index === 1 && styles.statColAccountsReached,
+                index === 2 && styles.statColNetFollowers,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statLabel,
+                  (index === 0 || index === 2) && styles.statLabelLower,
+                ]}
+              >
+                {item.label}
+              </Text>
               <Text style={styles.statValue}>{item.value}</Text>
             </View>
           ))}
@@ -139,14 +138,21 @@ export default function ProfessionalDashboardScreen() {
 
         <View style={styles.thumbRow}>
           {THUMBNAILS.map((item, index) => (
-            <View key={item.id} style={[styles.thumbWrap, { width: thumbSize, height: thumbHeight }]}>
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.8}
+              style={[styles.thumbWrap, { width: thumbSize, height: thumbHeight }]}
+              onPress={() => dispatch({ type: "SET_SCREEN", value: "insights" })}
+            >
               <Image source={{ uri: item.uri }} style={[styles.thumbImage, { transform: [{ rotate: item.rotate }] }]} resizeMode="cover" />
               <View style={styles.playBadge}>
                 {index === 0 ? <FirstThumbBadgeIcon size={20} /> : <PlayBadgeIcon size={19} />}
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
+
+        <View style={styles.toolsDivider} />
 
         <View style={styles.toolsHeader}>
           <Text style={styles.sectionTitle}>Your tools</Text>
@@ -234,12 +240,22 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 8,
   },
+  statColAccountsReached: {
+    marginLeft: -52,
+  },
+  statColNetFollowers: {
+    marginLeft: -52,
+  },
   statLabel: {
     fontSize: 13,
     lineHeight: 16,
     color: "#6F6F6F",
     fontFamily: "Inter_400Regular",
     marginBottom: 4,
+    minHeight: 32,
+  },
+  statLabelLower: {
+    paddingTop: 18,
   },
   statValue: {
     fontSize: 16,
@@ -281,6 +297,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+  },
+  toolsDivider: {
+    height: 1,
+    backgroundColor: "#E9E9E9",
+    marginBottom: 14,
   },
   toolsHeader: {
     flexDirection: "row",

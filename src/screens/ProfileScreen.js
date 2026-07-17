@@ -22,11 +22,13 @@ import {
 } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import BottomTabBar from "../components/BottomTabBar";
+import { useReelData } from "../context/ReelDataContext";
+import { PROFILE_POSTS } from "../constants/profilePosts";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const GAP = 3;
 const CELL_SIZE = (SCREEN_WIDTH - GAP * 2) / 3;
-const CELL_HEIGHT = CELL_SIZE * 1.15;
+const CELL_HEIGHT = CELL_SIZE * 1.22;
 
 const HIGHLIGHTS = [
   { id: "h1", imageUri: "https://picsum.photos/seed/hl1/200", label: "Success" },
@@ -34,68 +36,8 @@ const HIGHLIGHTS = [
   { id: "h3", imageUri: "https://picsum.photos/seed/hl3/200", label: "pushup" },
 ];
 
-const POSTS = [
-  {
-    id: "1",
-    thumbnailUri: "https://picsum.photos/seed/ironman/400",
-    isVideo: true,
-  },
-  {
-    id: "2",
-    thumbnailUri: "https://picsum.photos/seed/workout1/400",
-    isVideo: true,
-  },
-  {
-    id: "3",
-    thumbnailUri: "https://picsum.photos/seed/fitness/400",
-    isVideo: true,
-  },
-  {
-    id: "4",
-    thumbnailUri: "https://picsum.photos/seed/gym1/400",
-    isVideo: true,
-  },
-  {
-    id: "5",
-    thumbnailUri: "https://picsum.photos/seed/exercise/400",
-    isVideo: true,
-  },
-  {
-    id: "6",
-    thumbnailUri: "https://picsum.photos/seed/training/400",
-    isVideo: true,
-  },
-  {
-    id: "7",
-    thumbnailUri: "https://picsum.photos/seed/muscle/400",
-    isVideo: true,
-  },
-  {
-    id: "8",
-    thumbnailUri: "https://picsum.photos/seed/strength/400",
-    isVideo: true,
-  },
-  {
-    id: "9",
-    thumbnailUri: "https://picsum.photos/seed/power/400",
-    isVideo: true,
-  },
-  {
-    id: "10",
-    thumbnailUri: "https://picsum.photos/seed/athlete/400",
-    isVideo: true,
-  },
-  {
-    id: "11",
-    thumbnailUri: "https://picsum.photos/seed/sport/400",
-    isVideo: true,
-  },
-  {
-    id: "12",
-    thumbnailUri: "https://picsum.photos/seed/pushup/400",
-    isVideo: true,
-  },
-];
+const PROFILE_REELS_BADGE_ASSET = require("../../assets/icons/reels-icon.png");
+const PROFILE_VIEWS_ICON_ASSET = require("../../assets/icons/views-eye.png");
 
 const GridIcon = ({ color }) => (
   <Svg viewBox="500 500 1050 1050" width={26} height={26}>
@@ -285,10 +227,23 @@ const ThreadsIcon = ({ size = 16 }) => (
   </Svg>
 );
 
+const TrendArrowIcon = ({ size = 12, color = "#2EAD4E" }) => (
+  <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+    <Path
+      d="M2 12L12 2M12 2H7.5M12 2V6.5"
+      stroke={color}
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const SPINNER_HEIGHT = 72;
 const PULL_THRESHOLD = 60;
 
 export default function ProfileScreen() {
+  const { dispatch } = useReelData();
   const [activeContentTab, setActiveContentTab] = useState(0);
   const [showSpinner, setShowSpinner] = useState(false);
   const insets = useSafeAreaInsets();
@@ -580,10 +535,15 @@ export default function ProfileScreen() {
         </View>
 
         {/* Professional Dashboard */}
-        <TouchableOpacity style={styles.professionalDashboard} activeOpacity={0.7}>
-          <View>
-            <Text style={styles.dashboardTitle}>Professional dashboard</Text>
-            <Text style={styles.dashboardSubtitle}>515.7K views in the last 30 days.</Text>
+        <TouchableOpacity
+          style={styles.professionalDashboard}
+          activeOpacity={0.7}
+          onPress={() => dispatch({ type: "SET_SCREEN", value: "professionalDashboard" })}
+        >
+          <Text style={styles.dashboardTitle}>Professional dashboard</Text>
+          <View style={styles.dashboardSubtitleRow}>
+            <TrendArrowIcon />
+            <Text style={styles.dashboardSubtitle}>536.1K views in the last 30 days.</Text>
           </View>
         </TouchableOpacity>
 
@@ -595,10 +555,6 @@ export default function ProfileScreen() {
 
           <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
             <Text style={styles.actionButtonText}>Share profile</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.addPersonButton} activeOpacity={0.7}>
-            <PersonPlusIcon size={20} color="#111111" />
           </TouchableOpacity>
         </View>
 
@@ -660,12 +616,35 @@ export default function ProfileScreen() {
         {/* Post Grid */}
         {activeContentTab === 0 && (
           <View style={styles.postGrid}>
-            {POSTS.map((post) => (
-              <TouchableOpacity key={post.id} style={styles.postCell} activeOpacity={0.9}>
+            {PROFILE_POSTS.map((post, index) => (
+              <TouchableOpacity
+                key={post.id}
+                style={styles.postCell}
+                activeOpacity={0.9}
+                onPress={() => {
+                  dispatch({ type: "SET_SELECTED_POST_INDEX", index });
+                  dispatch({ type: "SET_SELECTED_POST_URI", uri: post.thumbnailUri });
+                  dispatch({ type: "SET_SCREEN", value: "posts" });
+                }}
+              >
                 <Image source={{ uri: post.thumbnailUri }} style={styles.postThumbnail} resizeMode="cover" />
                 {post.isVideo && (
                   <View style={styles.videoIndicator}>
-                    <PostReelIcon size={60} />
+                    <Image
+                      source={PROFILE_REELS_BADGE_ASSET}
+                      style={styles.videoIndicatorIcon}
+                      resizeMode="contain"
+                    />
+                  </View>
+                )}
+                {post.isVideo && (
+                  <View style={styles.videoViewsBadge}>
+                    <Image
+                      source={PROFILE_VIEWS_ICON_ASSET}
+                      style={styles.videoViewsIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.videoViewsText}>{post.views}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -783,7 +762,7 @@ const styles = StyleSheet.create({
   },
   profileTop: {
     paddingHorizontal: 14,
-    marginTop: -10,
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
@@ -935,21 +914,28 @@ const styles = StyleSheet.create({
   professionalDashboard: {
     marginHorizontal: 14,
     marginTop: 10,
-    backgroundColor: "#F5F5F5",
-    borderRadius: 12,
+    backgroundColor: "#F4F6FA",
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  dashboardSubtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
   },
   dashboardTitle: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#111111",
-    marginBottom: 1,
+    lineHeight: 18,
   },
   dashboardSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "400",
-    color: "#737373",
+    color: "#7A7A7A",
   },
   linksRow: {
     flexDirection: "row",
@@ -984,20 +970,20 @@ const styles = StyleSheet.create({
   actionButtonsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 14,
     marginTop: 8,
   },
   actionButton: {
     flex: 1,
-    height: 30,
-    backgroundColor: "#EFEFEF",
-    borderRadius: 8,
+    height: 36,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: "#111111",
     fontFamily: "Inter_500Medium",
@@ -1101,8 +1087,32 @@ const styles = StyleSheet.create({
   },
   videoIndicator: {
     position: "absolute",
-    top: 7,
-    right: -8,
+    top: 8,
+    right: 8,
+    zIndex: 2,
+  },
+  videoIndicatorIcon: {
+    width: 16,
+    height: 16,
+  },
+  videoViewsBadge: {
+    position: "absolute",
+    left: 7,
+    bottom: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    zIndex: 2,
+  },
+  videoViewsIcon: {
+    width: 16,
+    height: 16,
+  },
+  videoViewsText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+    includeFontPadding: false,
   },
   videoIndicatorTriangle: {
     width: 0,

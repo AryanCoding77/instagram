@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
 import Svg, { Line, Polyline, Text as SvgText } from "react-native-svg";
 import { ChevronDown, Info } from "lucide-react-native";
 import { C } from "../constants/colors";
@@ -38,7 +38,10 @@ const ACTIVE_TIMES = [
   { day: "Th", value: 82 },
   { day: "F", value: 96 },
   { day: "Sa", value: 74 },
+  { day: "Su", value: 62 },
 ];
+
+const ACTIVE_TIME_LABELS = ["12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p"];
 
 function buildChart(values, width, height) {
   const padLeft = 26;
@@ -96,12 +99,25 @@ function LocationRow({ name, percent }) {
 
 export default function InsightsAudienceTab() {
   const chartWidth = SCREEN_WIDTH - SIDE_PAD * 2;
-  const chart = useMemo(() => buildChart(CHART_POINTS, chartWidth, 170), [chartWidth]);
+  const chart = useMemo(() => buildChart(CHART_POINTS, chartWidth, 130), [chartWidth]);
   const [selectedPeriod] = useState("30 days");
   const [selectedLocationTab] = useState("Countries");
+  const [selectedActiveBar, setSelectedActiveBar] = useState(null);
+  const activeBarTooltipAnim = useRef(ACTIVE_TIMES.map(() => new Animated.Value(0))).current;
 
   const womenPercent = 14.4;
   const menPercent = 85.6;
+
+  useEffect(() => {
+    ACTIVE_TIMES.forEach((_, index) => {
+      Animated.timing(activeBarTooltipAnim[index], {
+        toValue: selectedActiveBar === index ? 1 : 0,
+        duration: selectedActiveBar === index ? 180 : 120,
+        easing: selectedActiveBar === index ? Easing.out(Easing.cubic) : Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [activeBarTooltipAnim, selectedActiveBar]);
 
   return (
     <View style={styles.content}>
@@ -116,7 +132,7 @@ export default function InsightsAudienceTab() {
       <Text style={styles.bigValue}>6,960</Text>
       <Text style={styles.growthText}>+5.9% <Text style={styles.growthMuted}>since May 23</Text></Text>
 
-      <Text style={styles.sectionTitle}>Follower growth over time</Text>
+      <Text style={[styles.sectionTitle, styles.growthSectionTitle]}>Follower growth over time</Text>
 
       <View style={styles.filterRow}>
         <View style={[styles.filterChip, styles.filterChipActive]}>
@@ -131,7 +147,7 @@ export default function InsightsAudienceTab() {
       </View>
 
       <View style={styles.chartWrap}>
-        <Svg width={chartWidth} height={170} viewBox={`0 0 ${chartWidth} 170`}>
+        <Svg width={chartWidth} height={130} viewBox={`0 0 ${chartWidth} 130`}>
           <Line x1={chart.padLeft} y1={chart.toY(44)} x2={chartWidth - chart.padRight} y2={chart.toY(44)} stroke="#EDEDED" strokeWidth={1} />
           <Line x1={chart.padLeft} y1={chart.toY(0)} x2={chartWidth - chart.padRight} y2={chart.toY(0)} stroke="#EDEDED" strokeWidth={1} />
           <Line x1={chart.padLeft} y1={chart.toY(-44)} x2={chartWidth - chart.padRight} y2={chart.toY(-44)} stroke="#EDEDED" strokeWidth={1} />
@@ -146,13 +162,13 @@ export default function InsightsAudienceTab() {
           <SvgText x={0} y={chart.toY(-44) + 4} fontSize={12} fontFamily="Inter_400Regular" fill="#8E8E8E">
             -44
           </SvgText>
-          <SvgText x={chart.padLeft} y={164} fontSize={12} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="start">
+          <SvgText x={chart.padLeft} y={124} fontSize={12} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="start">
             May 23
           </SvgText>
-          <SvgText x={chart.padLeft + chart.chartW / 2} y={164} fontSize={12} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="middle">
+          <SvgText x={chart.padLeft + chart.chartW / 2} y={124} fontSize={12} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="middle">
             Jun 4
           </SvgText>
-          <SvgText x={chartWidth - chart.padRight} y={164} fontSize={12} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="end">
+          <SvgText x={chartWidth - chart.padRight} y={124} fontSize={12} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="end">
             Jun 17
           </SvgText>
         </Svg>
@@ -227,7 +243,7 @@ export default function InsightsAudienceTab() {
         {ACTIVE_TIMES.map((item, index) => {
           const active = index === 0;
           return (
-            <View key={item.day} style={[styles.activeDayChip, active && styles.activeDayChipActive]}>
+            <View key={`${item.day}-${index}`} style={[styles.activeDayChip, active && styles.activeDayChipActive]}>
               <Text style={[styles.activeDayChipText, active && styles.activeDayChipTextActive]}>{item.day}</Text>
             </View>
           );
@@ -236,8 +252,54 @@ export default function InsightsAudienceTab() {
 
       <View style={styles.activeBars}>
         {ACTIVE_TIMES.map((item, index) => {
-          const heights = [8, 58, 90, 102, 96, 108, 84];
-          return <View key={item.day} style={[styles.activeBar, { height: heights[index] }]} />;
+          const heights = [28, 128, 182, 208, 198, 216, 166, 146];
+          const active = selectedActiveBar === index;
+          const dimmed = selectedActiveBar !== null && !active;
+          return (
+            <TouchableOpacity
+              key={`${item.day}-${index}`}
+              activeOpacity={0.85}
+              onPress={() => setSelectedActiveBar((current) => (current === index ? null : index))}
+              style={styles.activeBarItem}
+            >
+              <View
+                style={[
+                  styles.activeBar,
+                  { height: heights[index], backgroundColor: dimmed ? "#E6E7EE" : "#D500CA" },
+                ]}
+              />
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.activeBarTooltipWrap,
+                  { bottom: heights[index] + 44 },
+                  {
+                    opacity: activeBarTooltipAnim[index],
+                    transform: [
+                      {
+                        scale: activeBarTooltipAnim[index].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.84, 1],
+                        }),
+                      },
+                      {
+                        translateY: activeBarTooltipAnim[index].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [6, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <View style={styles.activeBarTooltip}>
+                  <Text style={styles.activeBarTooltipText}>{item.value}</Text>
+                </View>
+                <View style={styles.activeBarTooltipArrow} />
+              </Animated.View>
+              <Text style={styles.activeTimeLabel}>{ACTIVE_TIME_LABELS[index]}</Text>
+            </TouchableOpacity>
+          );
         })}
       </View>
     </View>
@@ -247,7 +309,7 @@ export default function InsightsAudienceTab() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: SIDE_PAD,
-    paddingTop: 2,
+    paddingTop: 30,
     paddingBottom: 28,
     backgroundColor: C.white,
   },
@@ -270,7 +332,8 @@ const styles = StyleSheet.create({
   periodText: {
     fontSize: 17,
     color: "#707070",
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
   },
   bigValue: {
     fontSize: 30,
@@ -283,7 +346,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#16A34A",
     fontFamily: "Inter_500Medium",
-    marginBottom: 22,
+    marginBottom: 28,
   },
   growthMuted: {
     color: "#777777",
@@ -293,6 +356,9 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: C.black,
     fontFamily: "Inter_500Medium",
+  },
+  growthSectionTitle: {
+    marginTop: 16,
   },
   filterRow: {
     flexDirection: "row",
@@ -323,7 +389,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   chartWrap: {
-    marginTop: 2,
+    marginTop: 50,
     marginBottom: 28,
   },
   genderHeader: {
@@ -414,7 +480,7 @@ const styles = StyleSheet.create({
   ageTrack: {
     flexDirection: "row",
     height: 8,
-    borderRadius: 999,
+    borderRadius: 2,
     backgroundColor: "#F4F5F8",
     overflow: "hidden",
   },
@@ -476,13 +542,13 @@ const styles = StyleSheet.create({
   activeDayRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 18,
   },
   activeDayChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: "#D9D9D9",
     alignItems: "center",
@@ -494,7 +560,7 @@ const styles = StyleSheet.create({
     borderColor: "#F3F4F6",
   },
   activeDayChipText: {
-    fontSize: 13,
+    fontSize: 14,
     color: C.black,
     fontFamily: "Inter_400Regular",
   },
@@ -505,15 +571,75 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    height: 118,
-    paddingHorizontal: 4,
-    marginBottom: 18,
+    width: SCREEN_WIDTH,
+    alignSelf: "center",
+    marginLeft: -SIDE_PAD,
+    marginRight: -SIDE_PAD,
+    height: 290,
+    paddingHorizontal: 8,
+    paddingBottom: 0,
+    marginBottom: 0,
+  },
+  activeBarItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    height: "100%",
+    position: "relative",
+  },
+  activeBarTooltipWrap: {
+    position: "absolute",
+    left: "50%",
+    marginLeft: -26,
+    alignItems: "center",
+    justifyContent: "flex-start",
+    width: 52,
+    zIndex: 3,
+    elevation: 4,
+  },
+  activeBarTooltip: {
+    minWidth: 44,
+    minHeight: 36,
+    paddingHorizontal: 8,
+    paddingTop: 7,
+    paddingBottom: 9,
+    borderRadius: 12,
+    backgroundColor: C.white,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#ECECEC",
+  },
+  activeBarTooltipArrow: {
+    width: 12,
+    height: 12,
+    marginTop: -6,
+    backgroundColor: C.white,
+    transform: [{ rotate: "45deg" }],
+    borderBottomRightRadius: 2,
+  },
+  activeBarTooltipText: {
+    fontSize: 13,
+    color: C.black,
+    fontFamily: "Inter_500Medium",
   },
   activeBar: {
-    width: 36,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
+    width: 42,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     backgroundColor: "#D500CA",
+    marginBottom: 8,
+    zIndex: 1,
+  },
+  activeTimeLabel: {
+    width: "100%",
+    textAlign: "center",
+    fontSize: 11,
+    color: "#8E8E8E",
+    fontFamily: "Inter_400Regular",
+    zIndex: 1,
   },
   locationsList: {
     paddingBottom: 24,
@@ -539,13 +665,13 @@ const styles = StyleSheet.create({
   },
   locationTrack: {
     height: 8,
-    borderRadius: 999,
+    borderRadius: 2,
     backgroundColor: "#F4F5F8",
     overflow: "hidden",
   },
   locationFill: {
     height: "100%",
     backgroundColor: "#D500CA",
-    borderRadius: 999,
+    borderRadius: 2,
   },
 });

@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Animated } from "react-native";
-import { ChevronDown, Heart, MessageCircle, Repeat2, Send } from "lucide-react-native";
+import { View, Text, StyleSheet, ScrollView, Animated, Image } from "react-native";
+import { ChevronDown, CornerUpLeft, Heart, MessageCircle, Repeat2, Send } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Defs, Mask, Path, Rect } from "react-native-svg";
 import { C } from "../constants/colors";
 
-const FILTERS = ["Latest", "Views", "Accounts reached", "Follows"];
+const FILTERS = ["Latest", "Views", "Accounts reached", "Follows", "Likes", "Comments", "Reposts", "Shares", "Saves"];
+
+const REELS_ICON_ASSET = require("../../assets/icons/reels-icon.png");
+const STORY_ICON_ASSET = require("../../assets/icons/story-icon.png");
 
 const CONTENT_ITEMS = [
   {
+    badge: "story",
     time: "21h",
     views: "400",
     stats: [
@@ -20,6 +23,7 @@ const CONTENT_ITEMS = [
     accent: "clock",
   },
   {
+    badge: "story",
     time: "22h",
     views: "491",
     stats: [
@@ -31,6 +35,7 @@ const CONTENT_ITEMS = [
     accent: "clock",
   },
   {
+    badge: "story",
     time: "1d",
     views: "604",
     stats: [
@@ -42,6 +47,7 @@ const CONTENT_ITEMS = [
     accent: "clock",
   },
   {
+    badge: "reels",
     time: "1d",
     title: "I Guess it could\u{1F642}...",
     views: "5.1K",
@@ -55,6 +61,7 @@ const CONTENT_ITEMS = [
     accent: "play",
   },
   {
+    badge: "story",
     time: "2d",
     views: "554",
     stats: [
@@ -66,6 +73,7 @@ const CONTENT_ITEMS = [
     accent: "clock",
   },
   {
+    badge: "story",
     time: "4d",
     views: "621",
     stats: [
@@ -77,6 +85,7 @@ const CONTENT_ITEMS = [
     accent: "clock",
   },
   {
+    badge: "story",
     time: "6d",
     views: "566",
     stats: [
@@ -88,6 +97,7 @@ const CONTENT_ITEMS = [
     accent: "clock",
   },
   {
+    badge: "story",
     time: "1w",
     views: "544",
     stats: [
@@ -130,27 +140,15 @@ function SkeletonLine({ width, height, style }) {
   return <Animated.View style={[{ width, height, opacity }, styles.skeleton, style]} />;
 }
 
-function PlayBadgeIcon({ size = 18 }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Defs>
-        <Mask id="content-play-badge-cutout">
-          <Rect x="0" y="0" width="24" height="24" fill="white" />
-          <Path d="M10 8.5L16 12L10 15.5V8.5Z" fill="black" />
-        </Mask>
-      </Defs>
-      <Rect x="1.5" y="1.5" width="21" height="21" rx="5.5" fill={C.white} mask="url(#content-play-badge-cutout)" />
-    </Svg>
-  );
-}
+function ContentThumbnail({ colors, badge }) {
+  const assetSource = badge === "story" ? STORY_ICON_ASSET : REELS_ICON_ASSET;
 
-function ContentThumbnail({ colors, accent }) {
   return (
     <View style={styles.thumbShell}>
       <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbBg}>
         <View style={styles.thumbOverlay} />
-        <View style={styles.badgeWrap}>
-          <PlayBadgeIcon size={accent === "play" ? 19 : 18} />
+        <View style={styles.badgeWrap} pointerEvents="none">
+          <Image source={assetSource} style={styles.badgeIcon} resizeMode="contain" />
         </View>
       </LinearGradient>
     </View>
@@ -158,9 +156,14 @@ function ContentThumbnail({ colors, accent }) {
 }
 
 function ContentRow({ item }) {
+  const statIcons =
+    item.badge === "story"
+      ? [Heart, Send, CornerUpLeft]
+      : [Heart, MessageCircle, Repeat2, Send];
+
   return (
     <View style={styles.row}>
-      <ContentThumbnail colors={item.colors} accent={item.accent} />
+      <ContentThumbnail colors={item.colors} badge={item.badge} />
 
       <View style={styles.middle}>
         <View style={[styles.topLine, item.title && styles.topLineWithTitle]}>
@@ -174,7 +177,7 @@ function ContentRow({ item }) {
 
         <View style={styles.statsRow}>
           {item.stats.map((stat, index) => {
-            const Icon = stat.icon;
+            const Icon = statIcons[index] || statIcons[statIcons.length - 1];
             return (
               <View key={`${stat.value}-${index}`} style={styles.statItem}>
                 <Icon size={12} color="#A0A0A0" strokeWidth={2} />
@@ -262,6 +265,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 10,
     marginBottom: 18,
   },
   allContentBtn: {
@@ -286,6 +290,8 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     gap: 10,
+    paddingLeft: 8,
+    paddingRight: 16,
     paddingBottom: 18,
   },
   filterChip: {
@@ -331,11 +337,18 @@ const styles = StyleSheet.create({
   },
   thumbOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.08)",
+    backgroundColor: "transparent",
   },
   badgeWrap: {
-    alignSelf: "flex-end",
-    marginTop: -1,
+    position: "absolute",
+    top: 5,
+    right: 5,
+    zIndex: 3,
+    elevation: 3,
+  },
+  badgeIcon: {
+    width: 14,
+    height: 14,
   },
   middle: {
     flex: 1,

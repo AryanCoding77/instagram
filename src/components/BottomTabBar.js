@@ -39,7 +39,7 @@ export default function BottomTabBar({ activeTab = "home" }) {
       <TouchableOpacity
         activeOpacity={0.7}
         style={styles.tabBtn}
-        onPress={() => dispatch({ type: "SET_SCREEN", value: "insights" })}
+        onPress={() => dispatch({ type: "SET_SCREEN", value: "reels" })}
       >
         <Svg
           viewBox="400 350 1250 1250"
@@ -57,7 +57,7 @@ export default function BottomTabBar({ activeTab = "home" }) {
       <TouchableOpacity
         activeOpacity={0.7}
         style={styles.tabBtn}
-        onPress={() => dispatch({ type: "SET_SCREEN", value: "professionalDashboard" })}
+        onPress={() => dispatch({ type: "SET_SCREEN", value: "reels" })}
       >
         <View style={styles.iconBadgeWrapper}>
           <Svg

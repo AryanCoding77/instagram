@@ -5,6 +5,8 @@ const STORAGE_KEY = "@reelInsights:data";
 
 export const DEFAULT_DATA = {
   currentScreen: "home",
+  selectedPostUri: null,
+  selectedPostIndex: 0,
   isEditing: false,
   thumbnailUri: null,
   likes: 662,
@@ -71,6 +73,12 @@ function reelDataReducer(state, action) {
   switch (action.type) {
     case "SET_SCREEN":
       return { ...state, currentScreen: action.value };
+
+    case "SET_SELECTED_POST_URI":
+      return { ...state, selectedPostUri: action.uri };
+
+    case "SET_SELECTED_POST_INDEX":
+      return { ...state, selectedPostIndex: action.index };
 
     case "SET_EDITING":
       return { ...state, isEditing: action.value };
