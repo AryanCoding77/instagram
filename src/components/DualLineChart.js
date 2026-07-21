@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
-import Svg, { Polyline, Line, Text as SvgText, Circle } from "react-native-svg";
+import Svg, { Polyline, Line, Text as SvgText } from "react-native-svg";
 
 /**
  * DualLineChart
@@ -13,17 +13,17 @@ import Svg, { Polyline, Line, Text as SvgText, Circle } from "react-native-svg";
 const IG_PINK = "#d500ca";
 const GRAY = "#AAAAAA";
 const GRID_COLOR = "#F5F5F5";
-const TEXT_GRAY = "#8E8E8E";
+const TEXT_GRAY = "#6E6E6E";
 
 const PAD_LEFT = 44;
 const PAD_RIGHT = 12;
-const PAD_TOP = 32;
-const PAD_BOTTOM = 28;
+const PAD_TOP = 24;
+const PAD_BOTTOM = 22;
 
 export default function DualLineChart({ data }) {
   const { width } = useWindowDimensions();
-  const svgWidth = width - 32; // 16px padding on each side
-  const svgHeight = 200;
+  const svgWidth = width;
+  const svgHeight = 148;
   const chartW = svgWidth - PAD_LEFT - PAD_RIGHT;
   const chartH = svgHeight - PAD_TOP - PAD_BOTTOM;
 
@@ -84,7 +84,7 @@ export default function DualLineChart({ data }) {
             x={PAD_LEFT - 6}
             y={toY(Y_VALS[i]) + 4}
             textAnchor="end"
-            fontSize={12}
+            fontSize={11.5}
             fontFamily="Inter_400Regular"
             fill={TEXT_GRAY}
           >
@@ -99,7 +99,7 @@ export default function DualLineChart({ data }) {
             x={PAD_LEFT + X_POSITIONS[i] * chartW}
             y={svgHeight - 6}
             textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"}
-            fontSize={12}
+            fontSize={11.5}
             fontFamily="Inter_400Regular"
             fill={TEXT_GRAY}
           >
@@ -128,13 +128,6 @@ export default function DualLineChart({ data }) {
           strokeLinejoin="round"
         />
 
-        {/* Endpoint dot for pink line */}
-        <Circle
-          cx={toX(THIS_REEL.length - 1)}
-          cy={toY(THIS_REEL[THIS_REEL.length - 1])}
-          r={5}
-          fill={IG_PINK}
-        />
       </Svg>
 
       {/* Legend */}
@@ -155,11 +148,12 @@ export default function DualLineChart({ data }) {
 const styles = StyleSheet.create({
   wrapper: {
     marginBottom: 8,
+    marginHorizontal: -16,
   },
   legend: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 4,
     marginLeft: 16,
   },
   legendItem: {
@@ -173,8 +167,8 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   legendText: {
-    fontSize: 13,
+    fontSize: 10,
     fontFamily: "Inter_400Regular",
-    color: "#8E8E8E",
+    color: "#525252",
   },
 });

@@ -13,7 +13,9 @@ export default function SectionHeading({ title, subtext }) {
   return (
     <View style={[styles.wrapper, state.isEditing && styles.editingBorder]}>
       <View style={styles.row}>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
         <Info size={18} color="#111111" strokeWidth={2.25} />
       </View>
       {subtext ? <Text style={styles.subtext}>{subtext}</Text> : null}
@@ -24,7 +26,7 @@ export default function SectionHeading({ title, subtext }) {
 const styles = StyleSheet.create({
   wrapper: {
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   editingBorder: {
     borderLeftWidth: 3,
@@ -34,14 +36,14 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    minHeight: 22,
   },
   title: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
+    flexShrink: 1,
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
     color: "#111111",
     marginRight: 8,
-    transform: [{ scaleY: 1.08 }],
-    letterSpacing: 0.8,
   },
   subtext: {
     fontSize: 13,

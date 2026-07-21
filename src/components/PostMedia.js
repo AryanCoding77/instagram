@@ -1,6 +1,8 @@
 import React from "react";
-import { View, Image, StyleSheet, Dimensions } from "react-native";
+import { View, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
+import { VolumeX } from "lucide-react-native";
 import TextOverlaySticker from "./TextOverlaySticker";
+import { C } from "../constants/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -13,6 +15,9 @@ export default function PostMedia({ mediaUri, textOverlay }) {
         resizeMode="cover"
       />
       {textOverlay && <TextOverlaySticker text={textOverlay} />}
+      <TouchableOpacity activeOpacity={0.8} style={styles.muteBtn}>
+        <VolumeX size={14} color={C.white} strokeWidth={2.1} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -27,5 +32,16 @@ const styles = StyleSheet.create({
   mediaImage: {
     width: "100%",
     height: "100%",
+  },
+  muteBtn: {
+    position: "absolute",
+    right: 14,
+    bottom: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

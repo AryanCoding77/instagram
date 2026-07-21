@@ -3,8 +3,23 @@ import { View, ScrollView, StyleSheet } from "react-native";
 import StoryCircle from "./StoryCircle";
 import { STORIES } from "../constants/mockData";
 import { C } from "../constants/colors";
+import { useProfileData } from "../context/ProfileDataContext";
 
-export default function StoriesRow() {
+export default function StoriesRow({ stories = STORIES }) {
+  const { state: profileState } = useProfileData();
+  const profile = profileState.profile;
+  const storyItems = [
+    {
+      id: "your-story",
+      avatarUri: profile.profilePicUri || stories[0]?.avatarUri,
+      label: "Your story",
+      isOwn: true,
+      hasStory: false,
+      isViewed: false,
+    },
+    ...stories.filter((story) => !story.isOwn),
+  ];
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -12,7 +27,7 @@ export default function StoriesRow() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {STORIES.map((story) => (
+        {storyItems.map((story) => (
           <StoryCircle
             key={story.id}
             avatarUri={story.avatarUri}
@@ -23,7 +38,6 @@ export default function StoriesRow() {
           />
         ))}
       </ScrollView>
-      <View style={styles.divider} />
     </View>
   );
 }
@@ -40,10 +54,5 @@ const styles = StyleSheet.create({
     gap: 16,
     flexDirection: "row",
     alignItems: "flex-start",
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: C.border,
-    width: "100%",
   },
 });

@@ -2,12 +2,29 @@ import { useMemo } from "react";
 import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Mask, Path, Rect } from "react-native-svg";
-import { ArrowLeft, ChevronRight, Clock3, GraduationCap, Lightbulb, BadgeCheck, Users, TrendingUp, SquarePlay } from "lucide-react-native";
+import { ChevronRight, Clock3, GraduationCap, Lightbulb, BadgeCheck, Users, TrendingUp, SquarePlay } from "lucide-react-native";
 import { useReelData } from "../context/ReelDataContext";
+import { useProfileData } from "../context/ProfileDataContext";
+import { formatCount } from "../constants/profileData";
 import { C } from "../constants/colors";
+import ProfileEditorSheet from "../components/ProfileEditorSheet";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THUMB_GAP = 8;
+
+function BackArrowIcon({ size = 28, color = C.black }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 30 30" fill="none">
+      <Path
+        d="M27 15H7.8M7.8 15L14.6 9.1M7.8 15L14.6 20.9"
+        stroke={color}
+        strokeWidth="1.55"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 const INSIGHT_STATS = [
   { label: "Views", value: "643.7K" },
@@ -75,12 +92,32 @@ const TOOLS = [
 
 export default function ProfessionalDashboardScreen() {
   const { dispatch } = useReelData();
+  const { state: profileState, dispatch: profileDispatch } = useProfileData();
+  const profile = profileState.profile;
   const thumbSize = useMemo(() => {
     const horizontalPadding = 16 * 2;
     const rowGap = THUMB_GAP * 3;
     return Math.floor((SCREEN_WIDTH - horizontalPadding - rowGap) / 4);
   }, []);
   const thumbHeight = Math.round(thumbSize * 1.45);
+  const insightStats = useMemo(() => {
+    return [
+      { label: "Views", value: formatCount(profile.dashboardViews || 0) },
+      { label: "Accounts\nreached", value: formatCount(profile.followersCount || 0) },
+      { label: "Net followers", value: `+${Math.max((profile.followersCount || 0) - (profile.followingCount || 0), 0)}` },
+    ];
+  }, [profile.dashboardViews, profile.followersCount, profile.followingCount]);
+  const thumbnails = useMemo(() => {
+    const reels = Array.isArray(profile.reels) ? profile.reels : [];
+    const mapped = reels.slice(0, 4).map((item, index) => ({
+      id: item.id || `${index}`,
+      uri: item.thumbnailUri || item.videoUrl || THUMBNAILS[index % THUMBNAILS.length].uri,
+      rotate: THUMBNAILS[index % THUMBNAILS.length].rotate,
+      isVideo: Boolean(item.videoUrl),
+      source: item,
+    }));
+    return mapped.length ? mapped : THUMBNAILS;
+  }, [profile.reels]);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
@@ -91,10 +128,16 @@ export default function ProfessionalDashboardScreen() {
             style={styles.iconBtn}
             onPress={() => dispatch({ type: "SET_SCREEN", value: "profile" })}
           >
-            <ArrowLeft size={29} color={C.black} strokeWidth={2.1} />
+            <BackArrowIcon size={28} color={C.black} />
           </TouchableOpacity>
 
-          <Text style={styles.title}>Professional dashboard</Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.titleTouch}
+            onPress={() => profileDispatch({ type: "SET_EDITING", value: true })}
+          >
+            <Text style={styles.title}>Professional dashboard</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity activeOpacity={0.7} style={styles.iconBtn}>
             <GearIcon size={27} color={C.black} />
@@ -107,7 +150,7 @@ export default function ProfessionalDashboardScreen() {
         </View>
 
         <View style={styles.statsRow}>
-          {INSIGHT_STATS.map((item, index) => (
+          {insightStats.map((item, index) => (
             <View
               key={item.label}
               style={[
@@ -137,12 +180,49 @@ export default function ProfessionalDashboardScreen() {
         </View>
 
         <View style={styles.thumbRow}>
-          {THUMBNAILS.map((item, index) => (
+          {thumbnails.map((item, index) => (
             <TouchableOpacity
               key={item.id}
               activeOpacity={0.8}
               style={[styles.thumbWrap, { width: thumbSize, height: thumbHeight }]}
-              onPress={() => dispatch({ type: "SET_SCREEN", value: "insights" })}
+              onPress={() => {
+                const selectedPost = item.source || null;
+                if (selectedPost) {
+                  dispatch({
+                    type: "SET_SELECTED_POST_DATA",
+                    data: {
+                      id: selectedPost.id,
+                      username: selectedPost.username || profile.username,
+                      displayName: selectedPost.displayName || profile.displayName,
+                      avatarUri: profile.profilePicUri,
+                      thumbnailUri: selectedPost.thumbnailUri || selectedPost.videoUrl || item.uri,
+                      videoUrl: selectedPost.videoUrl || null,
+                      views: selectedPost.viewCount || 0,
+                      likes: selectedPost.likesCount || 0,
+                      comments: selectedPost.commentsCount || 0,
+                      caption: selectedPost.caption || "",
+                      timestamp: selectedPost.timestamp || "",
+                      videoDuration: selectedPost.videoDuration || null,
+                      ownerUsername: selectedPost.username || profile.username,
+                      ownerFullName: selectedPost.displayName || profile.displayName,
+                    },
+                  });
+                  dispatch({ type: "SET_SELECTED_POST_URI", uri: selectedPost.thumbnailUri || selectedPost.videoUrl || item.uri });
+                  dispatch({ type: "SET_THUMBNAIL", uri: selectedPost.thumbnailUri || selectedPost.videoUrl || item.uri });
+                  dispatch({ type: "UPDATE_FIELD", field: "thumbnailUri", value: selectedPost.thumbnailUri || selectedPost.videoUrl || item.uri });
+                  dispatch({ type: "UPDATE_FIELD", field: "views", value: Number(selectedPost.viewCount) || 0 });
+                  dispatch({ type: "UPDATE_FIELD", field: "likes", value: Number(selectedPost.likesCount) || 0 });
+                  dispatch({ type: "UPDATE_FIELD", field: "comments", value: Number(selectedPost.commentsCount) || 0 });
+                  if (selectedPost.videoDuration) {
+                    dispatch({
+                      type: "UPDATE_FIELD",
+                      field: "videoDuration",
+                      value: Math.round(Number(selectedPost.videoDuration)) || 0,
+                    });
+                  }
+                }
+                dispatch({ type: "SET_SCREEN", value: "insights" });
+              }}
             >
               <Image source={{ uri: item.uri }} style={[styles.thumbImage, { transform: [{ rotate: item.rotate }] }]} resizeMode="cover" />
               <View style={styles.playBadge}>
@@ -176,6 +256,8 @@ export default function ProfessionalDashboardScreen() {
           })}
         </View>
       </ScrollView>
+
+      <ProfileEditorSheet />
     </SafeAreaView>
   );
 }
@@ -207,10 +289,15 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "500",
     color: C.black,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_500Medium",
     letterSpacing: -0.2,
+  },
+  titleTouch: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionHeader: {
     flexDirection: "row",

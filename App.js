@@ -21,6 +21,7 @@ import ReelInsightsScreen from "./src/screens/ReelInsightsScreen";
 import ProfessionalDashboardScreen from "./src/screens/ProfessionalDashboardScreen";
 import InsightsDetailScreen from "./src/screens/InsightsDetailScreen";
 import { ReelDataProvider, useReelData } from "./src/context/ReelDataContext";
+import { ProfileDataProvider } from "./src/context/ProfileDataContext";
 
 function MainNavigator() {
   const { state } = useReelData();
@@ -66,13 +67,15 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ReelDataProvider>
-          <MainNavigator />
-        </ReelDataProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <ReelDataProvider>
+            <ProfileDataProvider>
+              <MainNavigator />
+            </ProfileDataProvider>
+          </ReelDataProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
   );
 }
 

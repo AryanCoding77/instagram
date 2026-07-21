@@ -1,10 +1,25 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Keyboard } from "react-native";
-import { ArrowLeft, TrendingUp, MoreVertical } from "lucide-react-native";
+import Svg, { Path } from "react-native-svg";
+import { TrendingUp, MoreVertical } from "lucide-react-native";
 import { useReelData } from "../context/ReelDataContext";
 import EditModeBadge from "./EditModeBadge";
 
-export default function Header() {
+function BackArrowIcon({ size = 28, color = "#111111" }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 30 30" fill="none">
+      <Path
+        d="M27 15H7.8M7.8 15L14.6 9.1M7.8 15L14.6 20.9"
+        stroke={color}
+        strokeWidth="1.55"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export default function Header({ onTitlePress, disableTitlePress = false }) {
   const { state, dispatch } = useReelData();
 
   const handleMenuPress = () => {
@@ -41,7 +56,7 @@ export default function Header() {
           activeOpacity={0.7}
           onPress={() => dispatch({ type: "SET_SCREEN", value: "home" })}
         >
-          <ArrowLeft size={28} color="#111111" strokeWidth={2.0} />
+          <BackArrowIcon size={28} color="#111111" />
         </TouchableOpacity>
 
         {state.isEditing ? (
@@ -49,8 +64,18 @@ export default function Header() {
         ) : (
           <TouchableOpacity
             style={styles.titleContainer}
-            onPress={() => dispatch({ type: "SET_EDITING", value: true })}
+            onPress={() => {
+              if (disableTitlePress) {
+                return;
+              }
+              if (typeof onTitlePress === "function") {
+                onTitlePress();
+                return;
+              }
+              dispatch({ type: "SET_EDITING", value: true });
+            }}
             activeOpacity={0.7}
+            disabled={disableTitlePress}
           >
             <Text style={styles.title}>Reel insights</Text>
           </TouchableOpacity>
@@ -87,8 +112,6 @@ export default function Header() {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#FFFFFF",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#EFEFEF",
     paddingHorizontal: 8,
     paddingTop: 4,
     paddingBottom: 4,
@@ -107,11 +130,11 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 2,
+    marginLeft: 10,
   },
   title: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
+    fontSize: 19,
+    fontFamily: "Inter_600SemiBold",
     color: "#111111",
   },
   doneBtn: {

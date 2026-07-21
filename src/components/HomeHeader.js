@@ -1,7 +1,8 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Plus, Heart } from "lucide-react-native";
 import { C } from "../constants/colors";
+import InstagramLogo from "../../assets/instagram-logo.svg";
 
 export default function HomeHeader() {
   return (
@@ -11,9 +12,9 @@ export default function HomeHeader() {
         <Plus size={28} color={C.black} strokeWidth={1.75} />
       </TouchableOpacity>
 
-      {/* Center logo (absolute position so it doesn't get pushed by side icons) */}
+      {/* Center logo (kept centered and contained so it doesn't clip on the edges) */}
       <View style={styles.logoContainer} pointerEvents="none">
-        <Text style={styles.logoText}>Instagram</Text>
+        <InstagramLogo width={94} height={27} />
       </View>
 
       {/* Right icon */}
@@ -26,12 +27,12 @@ export default function HomeHeader() {
 
 const styles = StyleSheet.create({
   header: {
-    height: 52,
+    height: 50,
     backgroundColor: C.white,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     position: "relative",
   },
   iconBtn: {
@@ -41,18 +42,11 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     position: "absolute",
-    left: 0,
-    right: 0,
+    left: 52,
+    right: 52,
     top: 0,
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-  },
-  logoText: {
-    fontFamily: "GrandHotel_400Regular",
-    fontSize: 36,
-    color: C.black,
-    letterSpacing: -0.5,
-    textAlign: "center",
   },
 });

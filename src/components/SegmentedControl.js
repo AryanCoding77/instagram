@@ -35,12 +35,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 4,
+    marginBottom: 14,
   },
   pill: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 6,
     borderRadius: 50,
   },
   pillSelected: {
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     borderColor: "#EFEFEF",
   },
   label: {
-    fontSize: 14,
+    fontSize: 11,
   },
   labelSelected: {
     fontFamily: "Inter_600SemiBold",

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import {
   Send,
   Heart,
@@ -7,6 +7,8 @@ import {
   MessageCircle,
   Plus,
   PenLine,
+  ChevronRight,
+  TrendingUp,
 } from "lucide-react-native";
 import RepostIcon from "../components/RepostIcon";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -24,7 +26,7 @@ import GraphEditorSheet from "../components/GraphEditorSheet";
 import RetentionEditorSheet from "../components/RetentionEditorSheet";
 import { useReelData } from "../context/ReelDataContext";
 
-export default function OverviewTab() {
+export default function OverviewTab({ hideTopHeading = false }) {
   const { state, dispatch } = useReelData();
   const [viewsFilter, setViewsFilter] = useState("All");
   const [graphEditorVisible, setGraphEditorVisible] = useState(false);
@@ -72,7 +74,7 @@ export default function OverviewTab() {
     >
       {/* Summary */}
       <View style={styles.section}>
-        <SectionHeading title="Summary" />
+        {!hideTopHeading && <SectionHeading title="Summary" />}
         <View style={styles.grid}>
           <View style={styles.gridRow}>
             <View style={[styles.card, state.isEditing && styles.editableCard]}>
@@ -146,6 +148,7 @@ export default function OverviewTab() {
             selected={viewsFilter}
             onChange={setViewsFilter}
           />
+          <View style={styles.chartGap} />
           {state.isEditing && (
             <TouchableOpacity
               style={styles.editGraphBtn}
@@ -232,6 +235,16 @@ export default function OverviewTab() {
             percent={src.value}
             color="#d500ca"
             editable={true}
+            compact
+            labelFontSize={12}
+            valueFontSize={12}
+            wrapperMarginBottom={8}
+            labelMarginBottom={3}
+            trackHeight={7}
+            trackMarginRight={6}
+            valueWidth={42}
+            paddingVertical={2}
+            paddingHorizontal={2}
             onUpdateLabel={(newLabel) =>
               dispatch({
                 type: "UPDATE_TOP_SOURCE",
@@ -252,8 +265,14 @@ export default function OverviewTab() {
                 ? () => dispatch({ type: "DELETE_TOP_SOURCE", index: i })
                 : null
             }
-          />
+            />
         ))}
+        <Text style={styles.adHeading}>Ad</Text>
+        <TouchableOpacity activeOpacity={0.75} style={styles.boostRow}>
+          <TrendingUp size={18} color="#111111" strokeWidth={2.1} style={styles.boostIcon} />
+          <Text style={styles.boostText}>Boost this Reel</Text>
+          <ChevronRight size={14} color="#111111" strokeWidth={2} style={styles.boostArrow} />
+        </TouchableOpacity>
         {state.isEditing && (
           <TouchableOpacity
             style={styles.addBtn}
@@ -286,7 +305,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingBottom: 4,
   },
   sectionHeaderRow: {
@@ -344,15 +363,15 @@ const styles = StyleSheet.create({
   },
   gridRow: {
     flexDirection: "row",
-    marginBottom: 10,
-    gap: 10,
+    marginBottom: 8,
+    gap: 8,
   },
   card: {
     flex: 1,
     backgroundColor: "#F2F2F4",
-    borderRadius: 14,
-    padding: 16,
-    minHeight: 88,
+    borderRadius: 12,
+    padding: 14,
+    minHeight: 80,
     justifyContent: "space-between",
   },
   editableCard: {
@@ -361,11 +380,11 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 13,
     fontFamily: "Inter_500Medium",
-    color: "#8E8E8E",
-    marginBottom: 8,
+    color: "#7A7A7A",
+    marginBottom: 6,
   },
   cardValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "Inter_600SemiBold",
     color: "#111111",
   },
@@ -397,6 +416,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 4,
   },
+  chartGap: {
+    height: 14,
+  },
   chartHighlighted: {
     borderWidth: 1.5,
     borderColor: "#DD2A7B",
@@ -415,6 +437,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_500Medium",
     color: "#8E8E8E",
+    marginLeft: 6,
+  },
+  adHeading: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: "#111111",
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  boostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+  },
+  boostIcon: {
+    marginRight: 8,
+  },
+  boostText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: "#111111",
+    flex: 1,
+  },
+  boostArrow: {
     marginLeft: 6,
   },
 });

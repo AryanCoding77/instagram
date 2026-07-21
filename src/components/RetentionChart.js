@@ -30,7 +30,7 @@ export default function RetentionChart({
 }) {
   const { width } = useWindowDimensions();
   const svgWidth = width - 32; // 16px padding on each side
-  const svgHeight = 140;
+  const svgHeight = 116;
   const chartW = svgWidth - PAD_LEFT - PAD_RIGHT;
   const chartH = svgHeight - PAD_TOP - PAD_BOTTOM;
 
@@ -43,7 +43,7 @@ export default function RetentionChart({
 
   return (
     <View style={styles.wrapper}>
-      <VideoPreviewCard width={100} showPlayIcon={true} />
+      <VideoPreviewCard width={83} showPlayIcon={true} />
       <View style={styles.chartContainer}>
         <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
           {/* Gridlines */}
@@ -116,10 +116,10 @@ export default function RetentionChart({
 const styles = StyleSheet.create({
   wrapper: {
     alignItems: "center",
-    marginTop: 16,
+    marginTop: 4,
   },
   chartContainer: {
     width: "100%",
-    marginTop: 16,
+    marginTop: 44,
   },
 });

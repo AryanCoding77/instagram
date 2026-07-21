@@ -23,11 +23,12 @@ import { View, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { Plus } from "lucide-react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import SectionHeading from "../components/SectionHeading";
+import EditableNumber from "../components/EditableNumber";
 import HorizontalBarRow from "../components/HorizontalBarRow";
 import SegmentedControl from "../components/SegmentedControl";
 import { useReelData } from "../context/ReelDataContext";
 
-export default function AudienceTab() {
+export default function AudienceTab({ hideTopHeading = false }) {
   const { state, dispatch } = useReelData();
   const [detailFilter, setDetailFilter] = useState("Age");
 
@@ -36,7 +37,7 @@ export default function AudienceTab() {
 
   const VIEWER_SPLIT = [
     { label: "Followers", percent: state.followersPercent, color: "#d500ca", field: "followersPercent" },
-    { label: "Non-followers", percent: nonFollowersPercent, color: "#4B0AEA", autoComputed: true },
+    { label: "Non-followers", percent: nonFollowersPercent, color: "#7A2DBD", autoComputed: true },
   ];
 
   return (
@@ -53,7 +54,7 @@ export default function AudienceTab() {
     >
       {/* Who viewed your reel */}
       <View style={styles.section}>
-        <SectionHeading title="Who viewed your reel" />
+        {!hideTopHeading && <SectionHeading title="Who viewed your reel" />}
         <View style={styles.contentSpacing}>
           {VIEWER_SPLIT.map((row, i) => (
             <HorizontalBarRow
@@ -64,6 +65,16 @@ export default function AudienceTab() {
               layout="top"
               editable={!row.autoComputed}
               autoComputed={row.autoComputed}
+              compact
+              labelFontSize={12}
+              labelMarginBottom={3}
+              valueFontSize={12}
+              valueWidth={42}
+              trackHeight={7}
+              trackMarginRight={6}
+              wrapperMarginBottom={8}
+              paddingVertical={2}
+              paddingHorizontal={2}
               onUpdateValue={
                 row.field
                   ? (newVal) => {
@@ -95,16 +106,28 @@ export default function AudienceTab() {
           {detailFilter === "Age" && (
             <>
               {state.ageGroups.map((ageGroup, index) => (
-                <HorizontalBarRow
-                  key={`age-${ageGroup.label}-${index}`}
-                  label={ageGroup.label}
-                  percent={ageGroup.value}
-                  color="#d500ca"
-                  layout="top"
-                  editable={true}
-                  onUpdateLabel={(newLabel) =>
-                    dispatch({
-                      type: "UPDATE_AGE_GROUP",
+              <HorizontalBarRow
+                key={`age-${ageGroup.label}-${index}`}
+                label={ageGroup.label}
+                percent={ageGroup.value}
+                color="#d500ca"
+                layout="top"
+                editable={true}
+                compact
+                labelFontSize={12}
+                labelMarginBottom={1}
+                valueFontSize={12}
+                valueWidth={42}
+                trackHeight={7}
+                trackMarginRight={6}
+                trackRadius={1}
+                fillRadius={1}
+                wrapperMarginBottom={4}
+                paddingVertical={0}
+                paddingHorizontal={2}
+                onUpdateLabel={(newLabel) =>
+                  dispatch({
+                    type: "UPDATE_AGE_GROUP",
                       index: index,
                       updates: { label: newLabel },
                     })
@@ -141,16 +164,26 @@ export default function AudienceTab() {
           {detailFilter === "Country" && (
             <>
               {state.countries.map((country, index) => (
-                <HorizontalBarRow
-                  key={`country-${country.name}-${index}`}
-                  label={country.name}
-                  percent={country.value}
-                  color="#d500ca"
-                  layout="top"
-                  editable={true}
-                  onUpdateLabel={(newLabel) =>
-                    dispatch({
-                      type: "UPDATE_COUNTRY",
+              <HorizontalBarRow
+                key={`country-${country.name}-${index}`}
+                label={country.name}
+                percent={country.value}
+                color="#d500ca"
+                layout="top"
+                editable={true}
+                compact
+                labelFontSize={12}
+                labelMarginBottom={3}
+                valueFontSize={12}
+                valueWidth={42}
+                trackHeight={7}
+                trackMarginRight={6}
+                wrapperMarginBottom={8}
+                paddingVertical={2}
+                paddingHorizontal={2}
+                onUpdateLabel={(newLabel) =>
+                  dispatch({
+                    type: "UPDATE_COUNTRY",
                       index: index,
                       updates: { name: newLabel },
                     })
@@ -186,32 +219,46 @@ export default function AudienceTab() {
           {/* GENDER TAB - Isolated from shared list renderer */}
           {detailFilter === "Gender" && (
             <>
-              <HorizontalBarRow
-                key="gender-men"
+              <GenderMetricRow label="Women" percent={womenPercent} color="#D500CA" editable={false} />
+              <GenderMetricRow
                 label="Men"
                 percent={state.genderMen}
-                color="#d500ca"
-                layout="top"
+                color="#9D1090"
                 editable={true}
                 onUpdateValue={(newVal) => {
                   const num = parseFloat(newVal) || 0;
                   dispatch({ type: "UPDATE_FIELD", field: "genderMen", value: num });
                 }}
               />
-              <HorizontalBarRow
-                key="gender-women"
-                label="Women"
-                percent={womenPercent}
-                color="#4B0AEA"
-                layout="top"
-                editable={false}
-                autoComputed={true}
-              />
             </>
           )}
         </View>
       </View>
     </KeyboardAwareScrollView>
+  );
+}
+
+function GenderMetricRow({ label, percent, color, editable, onUpdateValue }) {
+  return (
+    <View style={styles.genderMetricRow}>
+      <Text style={styles.genderMetricLabel}>{label}</Text>
+      <View style={styles.genderMetricBarRow}>
+        <View style={styles.genderMetricTrack}>
+          <View style={[styles.genderMetricFill, { width: `${percent}%`, backgroundColor: color }]} />
+        </View>
+        {editable ? (
+          <EditableNumber
+            value={percent}
+            onSave={onUpdateValue}
+            style={styles.genderMetricValue}
+            suffix="%"
+            formatDisplay={(v) => parseFloat(v).toFixed(1)}
+          />
+        ) : (
+          <Text style={styles.genderMetricValue}>{percent.toFixed(1)}%</Text>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -226,10 +273,42 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   contentSpacing: {
-    marginTop: 16,
+    marginTop: -8,
   },
   detailsContent: {
     marginTop: 16,
+  },
+  genderMetricRow: {
+    marginBottom: 4,
+  },
+  genderMetricLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "#111111",
+    marginBottom: 0,
+  },
+  genderMetricBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  genderMetricTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 2,
+    overflow: "hidden",
+    backgroundColor: "#EAEAEA",
+    marginRight: 10,
+  },
+  genderMetricFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  genderMetricValue: {
+    width: 42,
+    textAlign: "right",
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: "#111111",
   },
   addBtn: {
     flexDirection: "row",

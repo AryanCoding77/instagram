@@ -37,15 +37,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: "#EFEFEF",
     backgroundColor: "#FFFFFF",
+    marginTop: -10,
   },
   tab: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 10,
     position: "relative",
   },
   label: {
-    fontSize: 15,
+    fontSize: 13,
   },
   active: {
     fontFamily: "Inter_600SemiBold",
@@ -58,10 +59,10 @@ const styles = StyleSheet.create({
   underline: {
     position: "absolute",
     bottom: 0,
-    left: 12,
-    right: 12,
-    height: 3,
+    left: 13,
+    right: 13,
+    height: 2,
     backgroundColor: "#111111",
-    borderRadius: 1.5,
+    borderRadius: 1,
   },
 });

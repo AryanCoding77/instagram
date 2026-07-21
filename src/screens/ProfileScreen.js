@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,29 +6,24 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Animated,
   ScrollView,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { PanGestureHandler, NativeViewGestureHandler, State } from "react-native-gesture-handler";
-import SpinnerArc from "../components/SpinnerArc";
-import {
-  Plus,
-  Lock,
-  ChevronDown,
-  Menu,
-  Repeat2,
-  Contact,
-} from "lucide-react-native";
+import { Lock, ChevronDown, Menu, Plus } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import BottomTabBar from "../components/BottomTabBar";
+import EditModeBadge from "../components/EditModeBadge";
+import ProfileEditorSheet from "../components/ProfileEditorSheet";
+import SpinnerArc from "../components/SpinnerArc";
 import { useReelData } from "../context/ReelDataContext";
-import { PROFILE_POSTS } from "../constants/profilePosts";
+import { useProfileData } from "../context/ProfileDataContext";
+import { formatCompactCountWhole, formatCount } from "../constants/profileData";
+import { fetchInstagramProfile, fetchInstagramReels } from "../services/apifyService";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const GAP = 3;
 const CELL_SIZE = (SCREEN_WIDTH - GAP * 2) / 3;
-const CELL_HEIGHT = CELL_SIZE * 1.22;
 
 const HIGHLIGHTS = [
   { id: "h1", imageUri: "https://picsum.photos/seed/hl1/200", label: "Success" },
@@ -38,6 +33,9 @@ const HIGHLIGHTS = [
 
 const PROFILE_REELS_BADGE_ASSET = require("../../assets/icons/reels-icon.png");
 const PROFILE_VIEWS_ICON_ASSET = require("../../assets/icons/views-eye.png");
+const PROFILE_HOME_ICON_ASSET = require("../../assets/icons/home.png");
+const PROFILE_REPOSTS_ICON_ASSET = require("../../assets/icons/reposts.png");
+const PROFILE_TAGGED_ICON_ASSET = require("../../assets/icons/tagged.png");
 
 const GridIcon = ({ color }) => (
   <Svg viewBox="500 500 1050 1050" width={26} height={26}>
@@ -86,32 +84,8 @@ const GridIcon = ({ color }) => (
   </Svg>
 );
 
-const ReelsIcon = ({ color }) => (
-  <View
-    style={{
-      width: 22,
-      height: 22,
-      borderRadius: 5,
-      borderWidth: 1.5,
-      borderColor: color,
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-  >
-    <View
-      style={{
-        width: 0,
-        height: 0,
-        borderTopWidth: 4,
-        borderBottomWidth: 4,
-        borderLeftWidth: 7,
-        borderTopColor: "transparent",
-        borderBottomColor: "transparent",
-        borderLeftColor: color,
-        marginLeft: 2,
-      }}
-    />
-  </View>
+const ImageTabIcon = ({ source, color }) => (
+  <Image source={source} style={[styles.imageTabIcon, { tintColor: color }]} resizeMode="contain" />
 );
 
 const ReelTabIcon = ({ color }) => (
@@ -185,35 +159,6 @@ const TagIcon = ({ color }) => (
   </Svg>
 );
 
-const PersonPlusIcon = ({ color = "#111111", size = 18 }) => (
-  <Svg viewBox="0 0 1044 1028" width={size} height={size * 0.985}>
-    <Path
-      fill={color}
-      d="M 320.564 592.423 C 327.11 591.792 337.999 591.823 344.696 591.761 L 500.901 591.73 C 544.916 591.73 609.061 588.756 650.011 599.124 C 690.794 609.499 728.092 630.514 758.095 660.023 C 803.266 704.511 829.03 765.046 829.775 828.442 C 829.785 858.583 817.707 887.469 796.245 908.632 C 760.167 944.724 724.926 941.818 678.538 941.777 L 607.5 941.706 L 320.485 941.714 L 243.055 941.721 C 227.774 941.74 202.846 942.416 188.608 939.926 C 168.579 936.23 149.909 927.228 134.545 913.857 C 112.098 894.633 98.3367 867.181 96.3651 837.694 C 92.438 780.715 116.48 716.437 154.059 674.003 C 198.341 624 254.316 596.83 320.564 592.423 z"
-      transform="translate(1044,0) scale(-1,1)"
-    />
-    <Path
-      fill={color}
-      d="M 457.55 122.938 C 565.689 120.118 655.62 205.535 658.366 313.676 C 661.112 421.818 575.632 511.69 467.489 514.361 C 359.452 517.031 269.686 431.652 266.942 323.616 C 264.199 215.58 349.516 125.756 457.55 122.938 z"
-      transform="translate(1044,0) scale(-1,1)"
-    />
-    <Path
-      fill={color}
-      d="M 842.211 336.194 C 842.564 336.174 842.917 336.156 843.271 336.14 C 878.594 334.63 872.49 374.644 872.42 398.138 C 872.233 420.017 872.259 441.898 872.496 463.776 L 938.226 463.628 C 949.125 463.612 960.749 464.082 971.53 463.929 C 994.883 463.596 1010.18 489.018 992.152 506.925 C 988.595 510.507 984.065 512.966 979.123 513.997 C 970.676 515.729 948.145 515.105 938.556 515.069 L 872.274 514.973 C 871.824 535.872 875.478 612.95 869.731 626.653 C 866.179 635.122 859.402 639.295 851.209 642.607 C 850.286 642.666 849.363 642.709 848.439 642.737 C 841.187 642.923 834.176 640.125 829.045 634.997 C 817.849 624.017 820.943 596.041 820.983 580.797 C 821.11 558.884 821.111 536.971 820.985 515.058 C 787.84 514.616 754.729 515.588 721.497 514.843 C 706.705 514.512 694.279 505.249 693.179 489.666 C 692.414 478.826 703.072 466.682 713.836 465.019 C 727.611 462.89 742.188 463.629 756.269 463.657 C 777.854 463.784 799.439 463.76 821.024 463.587 C 821.177 444.081 818.288 363.157 823.807 351.134 C 827.512 343.061 834.241 339.269 842.211 336.194 z"
-      transform="translate(1044,0) scale(-1,1)"
-    />
-  </Svg>
-);
-
-const PostReelIcon = ({ size = 20 }) => (
-  <Svg viewBox="0 0 2048 1023" width={size} height={size * 0.5}>
-    <Path
-      fill="#FFFFFF"
-      d="M 946.157 270.448 L 946.801 270.419 C 973.08 269.318 1005.17 268.553 1031.82 269.677 C 1099.21 272.517 1192.76 261.651 1246.6 308.903 C 1278.19 336.63 1286.67 381.714 1287.77 421.289 C 1288.69 454.113 1288.46 487.206 1288.5 520.057 C 1286.92 564.331 1292.37 612.949 1280.14 656.095 C 1256.21 740.553 1176.08 745.314 1105.04 747.886 C 1066.29 748.26 1027.55 748.374 988.801 748.23 C 928.72 748.134 847.207 752.838 800.435 709.594 C 768.524 680.09 761.727 638.024 760.497 596.566 C 759.594 566.159 760.382 535.043 760.104 504.556 C 762.02 442.58 750.248 363.751 795.938 314.372 C 832.933 274.39 895.82 272.326 946.157 270.448 z M 1068.15 562.872 C 1081.47 555.19 1095.57 546.776 1108.87 539.275 C 1160.45 510.202 1129.88 495.997 1096.63 476.45 L 1050.5 448.975 C 1028.71 436.048 999.963 417.24 978.812 405.813 C 975.858 404.221 972.688 403.071 969.401 402.399 C 966.047 401.722 961.088 401.862 957.626 402.279 C 952.19 405.097 948.888 407.633 946.907 413.6 C 944.238 421.639 945.093 583.031 945.869 601.535 C 946.001 604.663 946.036 607.546 947.56 610.378 C 949.925 614.776 954.776 618.343 959.576 619.622 C 962.975 620.528 966.343 620.203 969.633 619.056 C 986.358 613.222 1002.43 601.412 1017.6 592.365 C 1032.79 583.311 1048.38 574.888 1063.5 565.73 C 1065.05 564.787 1066.6 563.834 1068.15 562.872 z"
-    />
-  </Svg>
-);
-
 const ThreadsIcon = ({ size = 16 }) => (
   <Svg viewBox="0 0 1056 1196" width={size} height={size * 1.13}>
     <Path
@@ -227,287 +172,243 @@ const ThreadsIcon = ({ size = 16 }) => (
   </Svg>
 );
 
-const TrendArrowIcon = ({ size = 12, color = "#2EAD4E" }) => (
+const TrendArrowIcon = ({ size = 10, color = "#2EAD4E" }) => (
   <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
     <Path
       d="M2 12L12 2M12 2H7.5M12 2V6.5"
       stroke={color}
-      strokeWidth="1.4"
+      strokeWidth="1.15"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
   </Svg>
 );
 
-const SPINNER_HEIGHT = 72;
-const PULL_THRESHOLD = 60;
+const PULL_TRIGGER_DISTANCE = 48;
+const PULL_BANNER_HEIGHT = 70;
 
 export default function ProfileScreen() {
-  const { dispatch } = useReelData();
-  const [activeContentTab, setActiveContentTab] = useState(0);
-  const [showSpinner, setShowSpinner] = useState(false);
+  const { state: reelState, dispatch: reelDispatch } = useReelData();
+  const { state: profileState, dispatch: profileDispatch } = useProfileData();
+  const profile = profileState.profile;
+  const selectedPostData = reelState.selectedPostData;
+  const highlightsVisible = profile.highlightsVisible ?? profile.showHighlights ?? true;
+  const threadsRowVisible = profile.threadsRowVisible ?? profile.showThreadsRow ?? true;
+  const dashboardVisible = profile.dashboardVisible ?? true;
+  const noteVisible = profile.noteVisible ?? true;
+  const visibleHighlights = Array.isArray(profile.highlightItems)
+    ? profile.highlightItems
+    : HIGHLIGHTS;
   const insets = useSafeAreaInsets();
-  const HEADER_HEIGHT = 60;
-
-  // Pull-to-refresh Animated values (using standard React Native Animated)
-  const scrollY = useRef(0);
-  const pullDistance = useRef(new Animated.Value(0)).current;
-  const isRefreshing = useRef(false);
-
-  // Refs for gesture handler cooperation
-  const panRef = useRef(null);
-  const scrollRef = useRef(null);
-
-  // Toggle spinner visibility based on pull distance updates
-  useEffect(() => {
-    const listenerId = pullDistance.addListener(({ value }) => {
-      const shouldShow = value > PULL_THRESHOLD * 0.5;
-      setShowSpinner(shouldShow);
-    });
-    return () => {
-      pullDistance.removeListener(listenerId);
-    };
-  }, [pullDistance]);
-
-  const handleScroll = (event) => {
-    scrollY.current = event.nativeEvent.contentOffset.y;
-  };
-
-  const onGestureEvent = (event) => {
-    const { translationY } = event.nativeEvent;
-    if (scrollY.current <= 0 && translationY > 0 && !isRefreshing.current) {
-      const pull = Math.min(translationY * 0.5, SPINNER_HEIGHT);
-      pullDistance.setValue(pull);
+  const [activeContentTab, setActiveContentTab] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const scrollOffsetY = useRef(0);
+  const pullDistanceRef = useRef(0);
+  const touchStartY = useRef(0);
+  const effectiveProfileReels = useMemo(() => {
+    const reels = Array.isArray(profile.reels) ? profile.reels : [];
+    if (!selectedPostData) {
+      return reels;
     }
-  };
 
-  const onHandlerStateChange = (event) => {
-    if (event.nativeEvent.state === State.END || event.nativeEvent.state === State.CANCELLED) {
-      if (pullDistance._value >= PULL_THRESHOLD && !isRefreshing.current) {
-        isRefreshing.current = true;
-        Animated.spring(pullDistance, {
-          toValue: SPINNER_HEIGHT,
-          tension: 120,
-          friction: 15,
-          useNativeDriver: true,
-        }).start();
+    const selectedId = selectedPostData.id || selectedPostData.shortCode || selectedPostData.thumbnailUri;
+    return reels.map((post) => {
+      const matches =
+        post.id === selectedId ||
+        post.shortCode === selectedPostData.shortCode ||
+        post.thumbnailUri === selectedPostData.thumbnailUri;
 
-        setTimeout(() => {
-          Animated.spring(pullDistance, {
-            toValue: 0,
-            tension: 150,
-            friction: 18,
-            useNativeDriver: true,
-          }).start(() => {
-            isRefreshing.current = false;
-          });
-        }, 2000);
-      } else {
-        Animated.spring(pullDistance, {
-          toValue: 0,
-          tension: 200,
-          friction: 20,
-          useNativeDriver: true,
-        }).start();
+      if (!matches) {
+        return post;
       }
+
+      return {
+        ...post,
+        ...selectedPostData,
+        thumbnailUri: selectedPostData.thumbnailUri || post.thumbnailUri,
+        videoUrl: selectedPostData.videoUrl ?? post.videoUrl ?? null,
+        viewCount: selectedPostData.viewCount ?? selectedPostData.views ?? post.viewCount,
+        likesCount: selectedPostData.likesCount ?? selectedPostData.likes ?? post.likesCount,
+        commentsCount: selectedPostData.commentsCount ?? selectedPostData.comments ?? post.commentsCount,
+        caption: selectedPostData.caption || post.caption,
+        timestamp: selectedPostData.timestamp || post.timestamp,
+        username: selectedPostData.username || post.username,
+        displayName: selectedPostData.displayName || post.displayName,
+      };
+    });
+  }, [profile.reels, selectedPostData]);
+
+  const handleRefresh = async () => {
+    if (refreshing) {
+      return;
+    }
+
+    const username = (profile.username || profileState.lastLoadedUsername || "")
+      .trim()
+      .replace(/^@/, "");
+    if (!username) {
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      const profileRaw = await fetchInstagramProfile(username);
+      const extractedHighlights = Array.isArray(profileRaw.highlights) ? profileRaw.highlights : [];
+      const extractedThreadsLabel = (profileRaw.threadsLabel || "").trim();
+      const extractedNoteText = (profileRaw.noteText || "").trim();
+      let reels = await fetchInstagramReels(username);
+      if (!reels.length) {
+        reels = Array.isArray(profileRaw.latestPosts) ? profileRaw.latestPosts : [];
+      }
+
+      profileDispatch({
+        type: "MERGE_PROFILE",
+        updates: {
+          username,
+          displayName: profileRaw.fullName || username,
+          bio: profileRaw.biography || "",
+          profilePicUri: profileRaw.profilePicUrl || profile.profilePicUri,
+          followersCount: profileRaw.followersCount || 0,
+          followingCount: profileRaw.followsCount || 0,
+          postsCount: profileRaw.postsCount || 0,
+          externalUrl: profileRaw.externalUrl || "",
+          isVerified: profileRaw.verified || false,
+          reels,
+          highlightItems: extractedHighlights,
+          highlightsVisible: extractedHighlights.length > 0,
+          noteText: extractedNoteText || profile.noteText || "",
+          noteVisible: Boolean(extractedNoteText),
+          threadsLabel: extractedThreadsLabel,
+          threadsRowVisible: Boolean(extractedThreadsLabel),
+        },
+      });
+      profileDispatch({ type: "SET_LAST_LOADED_USERNAME", value: username });
+    } catch (error) {
+      console.log("[ProfileScreen] refresh failed", error);
+    } finally {
+      setRefreshing(false);
+      pullDistanceRef.current = 0;
+      setPullDistance(0);
     }
   };
 
-  // Spinner slides in from above
-  const spinnerTranslateY = pullDistance.interpolate({
-    inputRange: [0, SPINNER_HEIGHT],
-    outputRange: [-SPINNER_HEIGHT, 0],
-    extrapolate: 'clamp',
-  });
-
-  const spinnerOpacity = pullDistance.interpolate({
-    inputRange: [0, PULL_THRESHOLD * 0.5, PULL_THRESHOLD],
-    outputRange: [0, 0.5, 1],
-    extrapolate: 'clamp',
-  });
-
-  const spinnerAnimStyle = {
-    transform: [{ translateY: spinnerTranslateY }],
-    opacity: spinnerOpacity,
-  };
-
-  // Content shifts down as spinner enters
-  const contentAnimStyle = {
-    transform: [{ translateY: pullDistance }],
-  };
+  const refreshHandlerRef = useRef(handleRefresh);
+  refreshHandlerRef.current = handleRefresh;
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
-      {/* Profile Header - FIXED */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerLeftBtn} activeOpacity={0.7}>
-          <Plus size={32} color="#111111" strokeWidth={1.5} />
+          <Plus size={28} color="#111111" strokeWidth={1.5} />
         </TouchableOpacity>
 
         <View style={styles.headerCenterContainer} pointerEvents="none">
           <View style={styles.headerCenterRow}>
             <Lock size={17} color="#111111" strokeWidth={2} />
-            <Text style={styles.headerUsername}>aryan_9544_</Text>
+            <Text style={styles.headerUsername}>{profile.username}</Text>
             <ChevronDown size={17} color="#111111" strokeWidth={2.5} />
             <View style={styles.headerRedDot} />
           </View>
         </View>
 
         <View style={styles.headerRightGroup}>
-          <TouchableOpacity style={{ position: 'relative' }} activeOpacity={0.7}>
-            <View style={{
-              width: 32,
-              height: 32,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Svg viewBox="0 0 1056 1196" width={26} height={29}>
-                <Path
-                  fill="#111111"
-                  d="M 523.524 112.449 C 601.347 109.455 689.934 125.603 759.94 159.763 C 851.582 204.481 916.782 278.826 955.825 372.385 C 964.819 393.939 970.141 413.492 977.593 435.117 C 970.267 436.4 956.138 440.671 948.289 442.828 L 889.764 459.237 L 889.576 458.202 C 887.502 447.301 880.75 428.675 876.594 417.849 C 852.682 355.558 815.02 301.297 759.133 263.209 C 670.693 202.934 548.756 192.23 445.693 210.824 C 363.477 225.656 289.878 267.467 242.445 337.98 C 165.957 451.685 157.471 620.927 180.837 751.86 C 197.131 843.16 240.05 933.733 319.051 986.813 C 407.717 1046.39 527.562 1055.09 630.588 1037.02 C 699.951 1024.86 771.801 983.747 811.497 924.704 C 839.15 884.114 849.404 834.144 839.97 785.945 C 829.795 735.159 801.967 706.613 760.618 679.108 C 759.487 684.068 758.452 689.795 757.592 694.807 C 742.219 784.385 693.715 860.885 602.051 886.147 C 501.369 913.895 369.358 879.743 338.063 768.535 C 326.025 725.755 333.111 681.458 354.928 643.314 C 368.945 620.515 387.988 601.221 410.603 586.908 C 472.037 547.205 549.618 543.742 620.705 548.191 C 634.875 549.078 656.965 551.088 670.631 554.022 C 666.276 517.326 647.023 477.225 613.703 458.533 C 557.429 426.964 455.732 436.695 421.412 497.261 C 396.766 481.951 369.727 462.883 345.411 446.537 C 350.407 441.242 355.941 433.512 360.723 427.576 C 434.968 335.42 597.332 325.206 687.002 399.395 C 741.481 444.469 758.806 512.112 764.432 580.523 C 797.306 593.644 829.973 614.266 855.608 638.177 C 963.576 738.88 956.182 907.262 857.514 1011.61 C 774.318 1099.59 674.559 1131.98 555.991 1135.31 C 433.799 1138.74 313.033 1110.78 222.149 1025 C 119.92 929.028 82.6203 782.181 79.1566 646.518 C 76.6744 501.785 104.684 346.573 207.392 237.757 C 292.179 147.926 403.487 116.251 523.524 112.449 z"
-                />
-                <Path
-                  fill="#ffffff"
-                  d="M 564.509 637.433 C 602.525 635.779 636.213 639.911 673.365 646.439 C 663.033 736.594 635.387 803.436 533.287 805.031 C 486.307 805.487 425.118 783.898 422.665 728.765 C 421.916 710.03 428.696 691.776 441.495 678.073 C 471.805 645.003 522.468 639.114 564.509 637.433 z"
-                />
-              </Svg>
-            </View>
-            <View style={{
-              position: 'absolute',
-              top: -6,
-              right: -7,
-              width: 20,
-              height: 20,
-              borderRadius: 10,
-              backgroundColor: '#FF3040',
-              borderWidth: 2,
-              borderColor: '#ffffff',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Text style={{
-                fontSize: 11,
-                fontWeight: '900',
-                color: '#ffffff',
-                lineHeight: 12,
-                includeFontPadding: false,
-              }}>
-                2
-              </Text>
-            </View>
+          <TouchableOpacity style={styles.headerThreadsBtn} activeOpacity={0.7}>
+            <ThreadsIcon size={22} />
+            <View style={styles.headerThreadsDot} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.headerRightBtn} activeOpacity={0.7}>
-            <Menu size={26} color="#111111" strokeWidth={1.75} />
-          </TouchableOpacity>
+          {profileState.isEditing ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => profileDispatch({ type: "SET_EDITING", value: false })}
+            >
+              <Text style={styles.doneBtn}>Done</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.headerRightBtn}
+              activeOpacity={0.7}
+              onPress={() => profileDispatch({ type: "SET_EDITING", value: true })}
+            >
+              <Menu size={26} color="#111111" strokeWidth={1.75} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* Spinner — absolutely positioned below header, animates in/out */}
-      <Animated.View style={[
-        {
-          position: 'absolute',
-          top: HEADER_HEIGHT + insets.top,
-          left: 0,
-          right: 0,
-          height: SPINNER_HEIGHT,
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10,
-          backgroundColor: '#f1f2f4',
-        },
-        spinnerAnimStyle,
-      ]}>
-        {showSpinner && <SpinnerArc />}
-      </Animated.View>
-
-      {/* Scroll Content — shifts down to reveal spinner space */}
-      <Animated.View style={[{ flex: 1 }, contentAnimStyle]}>
-      <PanGestureHandler
-        ref={panRef}
-        simultaneousHandlers={scrollRef}
-        onGestureEvent={onGestureEvent}
-        onHandlerStateChange={onHandlerStateChange}
-        activeOffsetY={[-999, 5]}
-        failOffsetY={[-5, 999]}
-      >
-        <Animated.View style={{ flex: 1 }}>
-        <NativeViewGestureHandler ref={scrollRef} simultaneousHandlers={panRef}>
-        <Animated.ScrollView
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
+      <View style={styles.scrollArea}>
+        <ScrollView
+          style={[styles.scrollWrap, profileState.isEditing && styles.editingBorder]}
           showsVerticalScrollIndicator={false}
-          bounces={false}
-          overScrollMode="never"
-          contentContainerStyle={{ paddingBottom: 64 }}
-        >
-        {/* Profile Top Section */}
-        <View style={styles.profileTop}>
-          {/* Avatar with Note */}
-          <View style={styles.avatarContainer}>
-            <View style={{
-              backgroundColor: '#ffffff',
-              borderWidth: 1,
-              borderColor: '#DBDBDB',
-              borderRadius: 12,
-              paddingHorizontal: 10,
-              paddingVertical: 7,
-              marginBottom: -15,
-              maxWidth: 100,
-              minWidth: 80,
-              position: 'relative',
-              zIndex: 10,
-            }}>
-              <Text style={{
-                fontSize: 12,
-                color: '#8E8E8E',
-                lineHeight: 15,
-                textAlign: 'center',
-              }}>
-                {"Today's\nvibe..."}
-              </Text>
-              <View style={{
-                position: 'absolute',
-                bottom: -5,
-                left: 24,
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: '#ffffff',
-                borderWidth: 1,
-                borderColor: '#DBDBDB',
-              }} />
-            </View>
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#F1F4F8"
+              colors={["#F1F4F8"]}
+              progressBackgroundColor="#F1F4F8"
+              progressViewOffset={0}
+              size="large"
+            />
+          }
+          onScroll={(event) => {
+            scrollOffsetY.current = event.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+          onTouchStart={(event) => {
+            touchStartY.current = event.nativeEvent.pageY;
+          }}
+          onTouchMove={(event) => {
+            if (scrollOffsetY.current > 1 || refreshing) {
+              return;
+            }
 
-            <View style={{ position: "relative", width: 90, height: 90 }}>
-              <Image
-                source={{ uri: "https://picsum.photos/seed/myavatar/200" }}
-                style={{
-                  width: 90,
-                  height: 90,
-                  borderRadius: 45,
-                  borderWidth: 1,
-                  borderColor: '#DBDBDB',
-                }}
-                resizeMode="cover"
-              />
+            const distance = Math.min(
+              Math.max((event.nativeEvent.pageY - touchStartY.current) * 0.55, 0),
+              PULL_BANNER_HEIGHT
+            );
+            pullDistanceRef.current = distance;
+            setPullDistance(distance);
+          }}
+          onTouchEnd={() => {
+            if (pullDistanceRef.current >= PULL_TRIGGER_DISTANCE) {
+              pullDistanceRef.current = PULL_BANNER_HEIGHT;
+              setPullDistance(PULL_BANNER_HEIGHT);
+              refreshHandlerRef.current();
+            } else if (!refreshing) {
+              pullDistanceRef.current = 0;
+              setPullDistance(0);
+            }
+          }}
+          onTouchCancel={() => {
+            pullDistanceRef.current = 0;
+            setPullDistance(0);
+          }}
+        >
+
+        <View style={styles.profileTop}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatarWrap}>
+              <Image source={{ uri: profile.profilePicUri }} style={styles.avatarImage} resizeMode="cover" />
+              <View style={styles.avatarNoteDot} />
               <View style={styles.addStoryBadge}>
                 <Text style={styles.addStoryBadgeText}>+</Text>
               </View>
             </View>
           </View>
 
-          {/* Stats and Name */}
           <View style={styles.statsContainer}>
-            <Text style={styles.displayName}>Aryan_</Text>
+            <Text style={styles.displayName}>{profile.displayName}</Text>
             <View style={styles.statsRow}>
               {[
-                { count: "1", label: "posts" },
-                { count: "75", label: "followers" },
-                { count: "111", label: "following" },
+                { count: profile.postsCount, label: "posts" },
+                { count: profile.followersCount, label: "followers" },
+                { count: profile.followingCount, label: "following" },
               ].map(({ count, label }) => (
                 <TouchableOpacity key={label} style={styles.statCol} activeOpacity={0.7}>
-                  <Text style={styles.statCount}>{count}</Text>
+                  <Text style={styles.statCount}>{formatCount(count)}</Text>
                   <Text style={styles.statLabel}>{label}</Text>
                 </TouchableOpacity>
               ))}
@@ -515,149 +416,144 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Bio Section */}
         <View style={styles.bioSection}>
-          <Text style={styles.bioText}>
-            {"Doing what 8yrs old me wanted to\n18yrs old\n🎯Goal is to make something big\nContact: wonderscraftofficial@gmail.com"}
-          </Text>
+          <Text style={styles.bioText}>{profile.bio}</Text>
         </View>
 
-        {/* Threads Link Row */}
-        <View style={styles.threadsLinkRow}>
-          <TouchableOpacity style={styles.threadsLink} activeOpacity={0.7}>
-            <ThreadsIcon size={14} />
-            <Text style={styles.threadsLinkText}>wonders_craft_</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.addLink} activeOpacity={0.7}>
-            <Text style={styles.addLinkText}>+ Add</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Professional Dashboard */}
-        <TouchableOpacity
-          style={styles.professionalDashboard}
-          activeOpacity={0.7}
-          onPress={() => dispatch({ type: "SET_SCREEN", value: "professionalDashboard" })}
-        >
-          <Text style={styles.dashboardTitle}>Professional dashboard</Text>
-          <View style={styles.dashboardSubtitleRow}>
-            <TrendArrowIcon />
-            <Text style={styles.dashboardSubtitle}>536.1K views in the last 30 days.</Text>
+        {threadsRowVisible ? (
+          <View style={styles.threadsLinkRow}>
+            <TouchableOpacity style={styles.threadsLink} activeOpacity={0.7}>
+              <ThreadsIcon size={14} />
+              <Text style={styles.threadsLinkText}>{profile.threadsLabel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addLink} activeOpacity={0.7}>
+              <Text style={styles.addLinkText}>+ Add</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        ) : null}
 
-        {/* Action Buttons Row */}
+        {dashboardVisible ? (
+          <TouchableOpacity
+            style={styles.professionalDashboard}
+            activeOpacity={0.7}
+            onPress={() => reelDispatch({ type: "SET_SCREEN", value: "professionalDashboard" })}
+          >
+            <Text style={styles.dashboardTitle}>Professional dashboard</Text>
+            <View style={styles.dashboardSubtitleRow}>
+              <TrendArrowIcon />
+              <Text style={styles.dashboardSubtitle}>
+                {formatCount(profile.dashboardViews)} views in the last 30 days.
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
+
         <View style={styles.actionButtonsRow}>
           <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
             <Text style={styles.actionButtonText}>Edit profile</Text>
           </TouchableOpacity>
-
           <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
             <Text style={styles.actionButtonText}>Share profile</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Highlights Row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.highlightsContainer}
-        >
-          {/* New highlight — hidden while refreshing */}
-          {!showSpinner && (
+        {highlightsVisible ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlightsContainer}>
             <TouchableOpacity style={styles.highlightItem} activeOpacity={0.7}>
               <View style={styles.newHighlightCircle}>
                 <Plus size={28} color="#111111" strokeWidth={1.75} />
               </View>
               <Text style={styles.highlightLabel}>New</Text>
             </TouchableOpacity>
-          )}
 
-          {/* highlights list */}
-          {HIGHLIGHTS.map((hl) => (
-            <TouchableOpacity key={hl.id} style={styles.highlightItem} activeOpacity={0.7}>
-              <View style={styles.highlightOuterCircle}>
-                <View style={styles.highlightCircle}>
-                  <Image source={{ uri: hl.imageUri }} style={styles.highlightImage} resizeMode="cover" />
-                </View>
-              </View>
-              <Text style={styles.highlightLabel} numberOfLines={1}>
-                {hl.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+            {visibleHighlights.length
+              ? visibleHighlights.map((hl) => (
+                  <TouchableOpacity key={hl.id} style={styles.highlightItem} activeOpacity={0.7}>
+                    <View style={styles.highlightOuterCircle}>
+                      <View style={styles.highlightCircle}>
+                        <Image
+                          source={{ uri: hl.coverUrl || hl.imageUri }}
+                          style={styles.highlightImage}
+                          resizeMode="cover"
+                        />
+                      </View>
+                    </View>
+                    <Text style={styles.highlightLabel} numberOfLines={1}>
+                      {hl.title || hl.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              : null}
+          </ScrollView>
+        ) : null}
 
-        {/* Content Tabs */}
         <View style={styles.tabsContainer}>
           {[
-            { id: 0, component: (color) => <GridIcon color={color} /> },
+            { id: 0, component: (color) => <ImageTabIcon source={PROFILE_HOME_ICON_ASSET} color={color} /> },
             { id: 1, component: (color) => <ReelTabIcon color={color} /> },
-            { id: 2, component: (color) => <RepostTabIcon color={color} /> },
-            { id: 3, component: (color) => <TagIcon color={color} /> },
+            { id: 2, component: (color) => <ImageTabIcon source={PROFILE_REPOSTS_ICON_ASSET} color={color} /> },
+            { id: 3, component: (color) => <ImageTabIcon source={PROFILE_TAGGED_ICON_ASSET} color={color} /> },
           ].map((tab) => {
             const isActive = activeContentTab === tab.id;
             const color = isActive ? "#111111" : "#8E8E8E";
             return (
-              <TouchableOpacity
-                key={tab.id}
-                style={styles.tabBtn}
-                activeOpacity={0.7}
-                onPress={() => setActiveContentTab(tab.id)}
-              >
+              <TouchableOpacity key={tab.id} style={styles.tabBtn} activeOpacity={0.7} onPress={() => setActiveContentTab(tab.id)}>
                 {tab.component(color)}
-                {isActive && <View style={styles.activeTabIndicator} />}
+                {isActive ? <View style={styles.activeTabIndicator} /> : null}
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Post Grid */}
-        {activeContentTab === 0 && (
+        {activeContentTab === 0 ? (
           <View style={styles.postGrid}>
-            {PROFILE_POSTS.map((post, index) => (
+            {effectiveProfileReels.map((post, index) => (
               <TouchableOpacity
                 key={post.id}
                 style={styles.postCell}
                 activeOpacity={0.9}
                 onPress={() => {
-                  dispatch({ type: "SET_SELECTED_POST_INDEX", index });
-                  dispatch({ type: "SET_SELECTED_POST_URI", uri: post.thumbnailUri });
-                  dispatch({ type: "SET_SCREEN", value: "posts" });
+                  reelDispatch({ type: "SET_SELECTED_POST_INDEX", index });
+                  reelDispatch({ type: "SET_SELECTED_POST_URI", uri: post.thumbnailUri });
+                  reelDispatch({ type: "SET_SCREEN", value: "posts" });
                 }}
               >
                 <Image source={{ uri: post.thumbnailUri }} style={styles.postThumbnail} resizeMode="cover" />
-                {post.isVideo && (
+                {post.videoUrl !== null ? (
                   <View style={styles.videoIndicator}>
-                    <Image
-                      source={PROFILE_REELS_BADGE_ASSET}
-                      style={styles.videoIndicatorIcon}
-                      resizeMode="contain"
-                    />
+                    <Image source={PROFILE_REELS_BADGE_ASSET} style={styles.videoIndicatorIcon} resizeMode="contain" />
                   </View>
-                )}
-                {post.isVideo && (
+                ) : null}
+                {post.videoUrl !== null ? (
                   <View style={styles.videoViewsBadge}>
-                    <Image
-                      source={PROFILE_VIEWS_ICON_ASSET}
-                      style={styles.videoViewsIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.videoViewsText}>{post.views}</Text>
+                    <Image source={PROFILE_VIEWS_ICON_ASSET} style={styles.videoViewsIcon} resizeMode="contain" />
+                    <Text style={styles.videoViewsText}>{formatCompactCountWhole(post.viewCount)}</Text>
                   </View>
-                )}
+                ) : null}
               </TouchableOpacity>
             ))}
           </View>
-        )}
-        </Animated.ScrollView>
-        </NativeViewGestureHandler>
-        </Animated.View>
-      </PanGestureHandler>
-      </Animated.View>
+        ) : null}
+        </ScrollView>
 
-      {/* Bottom Tab Bar - FIXED */}
+        {pullDistance > 0 || refreshing ? (
+          <View
+            pointerEvents="none"
+            style={[styles.refreshBanner, { height: refreshing ? PULL_BANNER_HEIGHT : pullDistance }]}
+          >
+            <SpinnerArc size={36} color="#C7CBD1" strokeWidth={1.35} />
+          </View>
+        ) : null}
+      </View>
+
+      <ProfileEditorSheet />
+
+      {profileState.isEditing ? (
+        <View style={[styles.editBadgeWrap, { bottom: 64 + insets.bottom }]}>
+          <EditModeBadge />
+        </View>
+      ) : null}
+
       <BottomTabBar activeTab="profile" />
     </SafeAreaView>
   );
@@ -669,7 +565,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   header: {
-    height: 60,
+    height: 70,
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
@@ -717,94 +613,96 @@ const styles = StyleSheet.create({
     gap: 10,
     zIndex: 2,
   },
+  headerThreadsBtn: {
+    position: "relative",
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerThreadsDot: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#FF3040",
+  },
   headerRightBtn: {
     justifyContent: "center",
     alignItems: "center",
     padding: 4,
   },
-  threadsBtn: {
+  doneBtn: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: "#0095F6",
+    paddingHorizontal: 8,
+  },
+  scrollWrap: {
+    flex: 1,
+  },
+  scrollArea: {
+    flex: 1,
     position: "relative",
-    padding: 4,
   },
-  threadsOutline: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: "#111111",
-    alignItems: "center",
-    justifyContent: "center",
+  editingBorder: {
+    borderTopWidth: 2,
+    borderTopColor: "#DD2A7B",
   },
-  threadsSymbol: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#111111",
-    lineHeight: 18,
+  content: {
+    paddingBottom: 104,
+    backgroundColor: "#FFFFFF",
   },
-  threadsBadge: {
+  refreshBanner: {
     position: "absolute",
-    top: -1,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#FF3040",
-    borderWidth: 1.5,
-    borderColor: "#FFFFFF",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 70,
+    backgroundColor: "#F1F4F8",
     alignItems: "center",
     justifyContent: "center",
-  },
-  threadsBadgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    lineHeight: 10,
+    zIndex: 20,
   },
   profileTop: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
   },
   avatarContainer: {
-    width: 90,
-    alignItems: "flex-start",
-  },
-  noteBubble: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#DBDBDB",
-    borderRadius: 11,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    marginBottom: 4,
-    marginLeft: 0,
-    maxWidth: 90,
+    width: 78,
+    height: 110,
     position: "relative",
+    alignItems: "flex-start",
+    overflow: "visible",
   },
-  noteText: {
-    fontSize: 11,
-    color: "#8E8E8E",
-    lineHeight: 14,
-    fontFamily: "Inter_400Regular",
-  },
-  noteBubbleTail: {
+  avatarWrap: {
     position: "absolute",
-    bottom: -5,
-    left: 14,
-    width: 9,
-    height: 9,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderRightWidth: 1,
-    borderColor: "#DBDBDB",
-    transform: [{ rotate: "45deg" }],
+    left: 0,
+    bottom: 0,
+    width: 72,
+    height: 72,
+  },
+  avatarNoteDot: {
+    position: "absolute",
+    top: -4,
+    right: -2,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#111111",
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
+    zIndex: 3,
   },
   avatarImage: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 1,
     borderColor: "#DBDBDB",
   },
@@ -812,20 +710,20 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -2,
     right: -2,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: "#111111",
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
   addStoryBadgeText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "700",
-    lineHeight: 20,
+    lineHeight: 17,
     includeFontPadding: false,
   },
   statsContainer: {
@@ -843,21 +741,19 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingRight: 0,
   },
   statCol: {
     alignItems: "flex-start",
-    gap: -2,
   },
   statCount: {
-    fontSize: 16,
+    fontSize: 17.5,
     fontWeight: "500",
     color: "#111111",
     fontFamily: "Inter_500Medium",
     lineHeight: 18,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: 14.5,
     fontWeight: "400",
     color: "#111111",
     marginTop: -2,
@@ -913,59 +809,27 @@ const styles = StyleSheet.create({
   },
   professionalDashboard: {
     marginHorizontal: 14,
-    marginTop: 10,
-    backgroundColor: "#F4F6FA",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
+    marginTop: 8,
+    backgroundColor: "#F2F2F2",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   dashboardSubtitleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 2,
+    marginTop: 1,
   },
   dashboardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "600",
     color: "#111111",
-    lineHeight: 18,
   },
   dashboardSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "400",
     color: "#7A7A7A",
-  },
-  linksRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
-    paddingHorizontal: 14,
-    marginTop: 10,
-  },
-  linkPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    height: 28,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#DBDBDB",
-    borderRadius: 14,
-  },
-  linkPillIcon: {
-    fontSize: 13,
-    color: "#111111",
-    fontWeight: "400",
-    fontFamily: "Inter_400Regular",
-  },
-  linkPillText: {
-    fontSize: 13,
-    color: "#111111",
-    fontWeight: "400",
-    fontFamily: "Inter_400Regular",
   },
   actionButtonsRow: {
     flexDirection: "row",
@@ -987,14 +851,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111111",
     fontFamily: "Inter_500Medium",
-  },
-  addPersonButton: {
-    width: 34,
-    height: 30,
-    backgroundColor: "#EFEFEF",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
   },
   highlightsContainer: {
     paddingHorizontal: 14,
@@ -1030,8 +886,6 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    borderWidth: 0,
-    borderColor: "#DBDBDB",
     overflow: "hidden",
   },
   highlightImage: {
@@ -1077,7 +931,7 @@ const styles = StyleSheet.create({
   },
   postCell: {
     width: CELL_SIZE,
-    height: CELL_HEIGHT,
+    height: CELL_SIZE * 1.38,
     position: "relative",
     margin: 0,
   },
@@ -1092,8 +946,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   videoIndicatorIcon: {
-    width: 16,
-    height: 16,
+    width: 15,
+    height: 15,
   },
   videoViewsBadge: {
     position: "absolute",
@@ -1105,23 +959,25 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   videoViewsIcon: {
-    width: 16,
-    height: 16,
+    width: 13,
+    height: 13,
+  },
+  imageTabIcon: {
+    width: 22,
+    height: 22,
   },
   videoViewsText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 9.5,
     fontWeight: "600",
+    lineHeight: 12,
     includeFontPadding: false,
   },
-  videoIndicatorTriangle: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 6,
-    borderBottomWidth: 6,
-    borderLeftWidth: 10,
-    borderTopColor: "transparent",
-    borderBottomColor: "transparent",
-    borderLeftColor: "#FFFFFF",
+  editBadgeWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 100,
   },
 });

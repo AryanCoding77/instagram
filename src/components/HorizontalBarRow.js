@@ -28,6 +28,18 @@ export default function HorizontalBarRow({
   onUpdateValue,
   onDelete,
   autoComputed = false,
+  compact = false,
+  labelFontSize,
+  valueFontSize,
+  wrapperMarginBottom,
+  labelMarginBottom,
+  trackHeight,
+  trackMarginRight,
+  trackRadius,
+  fillRadius,
+  valueWidth,
+  paddingVertical,
+  paddingHorizontal,
 }) {
   const { state } = useReelData();
   const editableRowBg = state.isEditing && editable ? { backgroundColor: "#FFF8FD" } : {};
@@ -87,8 +99,15 @@ export default function HorizontalBarRow({
   }
 
   return (
-    <View style={[styles.wrapper, editableRowBg]}>
-      <View style={styles.labelRow}>
+    <View style={[
+      styles.wrapper,
+      compact && styles.wrapperCompact,
+      wrapperMarginBottom != null && { marginBottom: wrapperMarginBottom },
+      paddingVertical != null && { paddingVertical },
+      paddingHorizontal != null && { paddingHorizontal },
+      editableRowBg,
+    ]}>
+      <View style={[styles.labelRow, compact && styles.labelRowCompact, labelMarginBottom != null && { marginBottom: labelMarginBottom }]}>
         {state.isEditing && editable && onDelete && (
           <TouchableOpacity onPress={onDelete} style={styles.deleteBtn}>
             <Trash2 size={16} color="#FF3B30" strokeWidth={2} />
@@ -98,17 +117,18 @@ export default function HorizontalBarRow({
           <EditableText
             value={label}
             onSave={onUpdateLabel}
-            style={styles.label}
+            style={[styles.label, labelFontSize != null && { fontSize: labelFontSize }]}
           />
         ) : (
-          <Text style={styles.label}>{label}</Text>
+          <Text style={[styles.label, labelFontSize != null && { fontSize: labelFontSize }]}>{label}</Text>
         )}
       </View>
       <View style={styles.barRow}>
-        <View style={[styles.track, { backgroundColor: trackColor }]}>
+        <View style={[styles.track, compact && styles.trackCompact, trackHeight != null && { height: trackHeight }, trackMarginRight != null && { marginRight: trackMarginRight }, trackRadius != null && { borderRadius: trackRadius }, { backgroundColor: trackColor }]}>
           <View
             style={[
               styles.fill,
+              fillRadius != null && { borderRadius: fillRadius },
               {
                 width: `${percent}%`,
                 backgroundColor: color,
@@ -118,7 +138,7 @@ export default function HorizontalBarRow({
         </View>
         {autoComputed ? (
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={[styles.value, { color: "#111111" }]}>
+            <Text style={[styles.value, { color: "#111111" }, valueFontSize != null && { fontSize: valueFontSize }, valueWidth != null && { width: valueWidth }]}>
               {percent.toFixed(1)}%
             </Text>
             {state.isEditing && <Text style={styles.autoBadge}>auto</Text>}
@@ -127,12 +147,12 @@ export default function HorizontalBarRow({
           <EditableNumber
             value={percent}
             onSave={onUpdateValue}
-            style={styles.value}
+            style={[styles.value, valueFontSize != null && { fontSize: valueFontSize }, valueWidth != null && { width: valueWidth }]}
             suffix="%"
             formatDisplay={(v) => parseFloat(v).toFixed(1)}
           />
         ) : (
-          <Text style={styles.value}>{percent.toFixed(1)}%</Text>
+          <Text style={[styles.value, valueFontSize != null && { fontSize: valueFontSize }, valueWidth != null && { width: valueWidth }]}>{percent.toFixed(1)}%</Text>
         )}
       </View>
     </View>
@@ -141,22 +161,26 @@ export default function HorizontalBarRow({
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginBottom: 12,
+    marginBottom: 2,
     paddingVertical: 4,
     paddingHorizontal: 4,
     borderRadius: 8,
   },
+  wrapperCompact: {},
   labelRow: {
-    marginBottom: 8,
+    marginBottom: 2,
     flexDirection: "row",
     alignItems: "center",
+  },
+  labelRowCompact: {
+    marginBottom: 1,
   },
   deleteBtn: {
     marginRight: 8,
     padding: 4,
   },
   label: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
     color: "#111111",
   },
@@ -167,7 +191,7 @@ const styles = StyleSheet.create({
   sideWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 2,
     paddingVertical: 4,
     paddingHorizontal: 4,
     borderRadius: 8,
@@ -186,13 +210,16 @@ const styles = StyleSheet.create({
   track: {
     flex: 1,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 2,
     overflow: "hidden",
     marginRight: 10,
   },
+  trackCompact: {
+    height: 7,
+  },
   fill: {
     height: "100%",
-    borderRadius: 4,
+    borderRadius: 2,
   },
   value: {
     fontSize: 15,

@@ -14,9 +14,6 @@ import {
   Plus,
   Heart,
   MessageCircle,
-  Repeat2,
-  Send,
-  Bookmark,
   MoreVertical,
   ChevronDown,
   SlidersHorizontal,
@@ -31,11 +28,11 @@ const BOTTOM_NAV_HEIGHT = 52;
 const REEL_ITEMS = FEED_POSTS.filter((post) => post.type === "reel");
 
 const ACTIONS = [
-  { icon: Heart, value: "69.8K" },
-  { icon: MessageCircle, value: "172" },
-  { icon: Repeat2, value: "4,039" },
-  { icon: Send, value: "28K" },
-  { icon: Bookmark, value: "3,510" },
+  { value: "69.8K" },
+  { value: "172" },
+  { value: "4,039", icon: require("../../assets/icons/repost.png") },
+  { value: "28K", icon: require("../../assets/icons/share.png") },
+  { value: "3,510", icon: require("../../assets/icons/saved.png") },
 ];
 
 function ReelsCard({ item, cardHeight }) {
@@ -81,17 +78,22 @@ function ReelsCard({ item, cardHeight }) {
         </View>
 
         <View style={[styles.actionsRail, { top: cardHeight * 0.33 }]}>
-          {ACTIONS.map((action) => {
-            const Icon = action.icon;
+          {ACTIONS.map((action, index) => {
             return (
               <View key={action.value} style={styles.actionItem}>
-                <Icon size={34} color={C.white} strokeWidth={1.95} />
+                {index === 0 ? (
+                  <Heart size={26} color={C.white} strokeWidth={1.95} fill="none" />
+                ) : index === 1 ? (
+                  <MessageCircle size={26} color={C.white} strokeWidth={1.95} fill="none" />
+                ) : (
+                  <Image source={action.icon} style={styles.actionIcon} resizeMode="contain" />
+                )}
                 <Text style={styles.actionValue}>{action.value}</Text>
               </View>
             );
           })}
           <View style={[styles.actionItem, styles.moreActionItem]}>
-            <MoreVertical size={24} color={C.white} strokeWidth={2} />
+            <MoreVertical size={20} color={C.white} strokeWidth={1.75} />
           </View>
           <View style={styles.thumbActionItem}>
             <Image
@@ -187,100 +189,111 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingLeft: 14,
-    paddingRight: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingLeft: 10,
+    paddingRight: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
     zIndex: 2,
   },
   topLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 18,
+    gap: 12,
     flexShrink: 1,
+    marginLeft: 10,
   },
   topTitleWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 3,
+    marginLeft: 10,
+    marginRight: 2,
   },
   plusBtn: {
-    width: 46,
-    height: 46,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: -4,
+    marginLeft: -1,
   },
   topTitle: {
     color: C.white,
-    fontSize: 23,
+    fontSize: 18,
     fontWeight: "700",
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   topFriendsWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginLeft: 4,
+    gap: 6,
+    marginLeft: 10,
+    marginRight: 14,
   },
   topFriends: {
     color: "rgba(255,255,255,0.78)",
-    fontSize: 22,
+    fontSize: 17,
     fontWeight: "600",
   },
   friendAvatars: {
     flexDirection: "row",
     alignItems: "center",
+    marginRight: 2,
   },
   friendAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    width: 19,
+    height: 19,
+    borderRadius: 9.5,
+    borderWidth: 1.25,
     borderColor: C.black,
   },
   friendAvatarOverlap: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    width: 19,
+    height: 19,
+    borderRadius: 9.5,
+    borderWidth: 1.25,
     borderColor: C.black,
-    marginLeft: -7,
+    marginLeft: -5,
   },
   filterBtn: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
   },
   actionsRail: {
     position: "absolute",
-    right: 10,
+    right: 8,
     alignItems: "center",
-    gap: 16,
+    gap: 12,
     zIndex: 3,
-    transform: [{ translateY: 28 }],
+    transform: [{ translateY: 86 }],
   },
   actionItem: {
     alignItems: "center",
-    gap: 7,
-    minWidth: 56,
+    gap: 4,
+    minWidth: 44,
   },
   moreActionItem: {
-    transform: [{ translateY: 6 }],
+    transform: [{ translateY: 15 }],
   },
   thumbActionItem: {
-    marginTop: 18,
+    marginTop: 10,
   },
   actionValue: {
     color: C.white,
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: "600",
+  },
+  actionIcon: {
+    width: 25,
+    height: 25,
+    tintColor: C.white,
   },
   bottomMeta: {
     paddingHorizontal: 18,
     paddingBottom: 22,
     zIndex: 2,
+    backgroundColor: "transparent",
   },
   profileRow: {
     flexDirection: "row",
@@ -289,27 +302,28 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   username: {
     color: C.white,
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: "600",
   },
   followBtn: {
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.8)",
+    backgroundColor: "transparent",
     borderRadius: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     paddingVertical: 5,
     marginLeft: 4,
+    borderWidth: 0.5,
+    borderColor: C.white,
   },
   followText: {
     color: C.white,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
   },
   captionRow: {
     flexDirection: "row",
@@ -320,16 +334,17 @@ const styles = StyleSheet.create({
   caption: {
     flex: 1,
     color: C.white,
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 16,
   },
   captionThumb: {
-    width: 31,
-    height: 31,
+    width: 23,
+    height: 23,
     borderRadius: 4,
     borderWidth: 1.5,
     borderColor: C.white,
-    transform: [{ translateY: 0 }],
+    marginTop: 14,
+    transform: [{ translateY: 8 }],
   },
   progressBarTrack: {
     position: "absolute",

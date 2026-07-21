@@ -4,7 +4,7 @@ import Svg, { Circle } from "react-native-svg";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-export default function SpinnerArc() {
+export default function SpinnerArc({ size = 30, color = "#E1E5EA", strokeWidth = 2.1 }) {
   const rotation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -32,15 +32,15 @@ export default function SpinnerArc() {
 
   return (
     <AnimatedView style={[styles.container, { transform: [{ rotate: spin }] }]}>
-      <Svg width={34} height={34} viewBox="0 0 34 34">
+      <Svg width={size} height={size} viewBox="0 0 34 34">
         <Circle
           cx="17"
           cy="17"
-          r="12"
-          stroke="#111111"
-          strokeWidth="3"
+          r="14"
+          stroke={color}
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
-          strokeDasharray="56 24"
+          strokeDasharray="78 10"
           fill="none"
         />
       </Svg>
@@ -50,8 +50,8 @@ export default function SpinnerArc() {
 
 const styles = StyleSheet.create({
   container: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
   },

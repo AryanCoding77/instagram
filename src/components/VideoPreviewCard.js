@@ -19,7 +19,7 @@ export default function VideoPreviewCard({ width = 220, showPlayIcon = false }) 
 
   // Letter-box proportions: 28% top + 44% content + 28% bottom
   const frameH = height * 0.44;
-  const frameTop = height * 0.28;
+  const frameTop = height * 0.22;
 
   const handleChangeThumbnail = async () => {
     console.log("handleChangeThumbnail called");
@@ -89,8 +89,16 @@ export default function VideoPreviewCard({ width = 220, showPlayIcon = false }) 
         {showPlayIcon && !state.isEditing && (
           <View style={[StyleSheet.absoluteFill, styles.playOverlay]}>
             <Svg width={36} height={36} viewBox="0 0 36 36">
-              {/* Play triangle */}
-              <Polygon points="10,6 30,18 10,30" fill="white" opacity={0.9} />
+              {/* Soft rounded outlined play glyph */}
+              <Path
+                d="M13 11.2C12.5 11.6 12.2 12.2 12.2 12.8V23.2C12.2 23.8 12.5 24.4 13 24.8C13.6 25.3 14.3 25.3 14.9 24.9L23.9 18.8C24.7 18.3 24.7 17.1 23.9 16.6L14.9 10.6C14.3 10.2 13.6 10.2 13 11.2Z"
+                fill="none"
+                stroke="white"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                opacity={0.95}
+              />
             </Svg>
           </View>
         )}

@@ -27,7 +27,7 @@ function SimpleRow({ label, value, field }) {
   );
 }
 
-export default function EngagementTab() {
+export default function EngagementTab({ hideTopHeading = false }) {
   const { state } = useReelData();
   const [engagementEditorVisible, setEngagementEditorVisible] = useState(false);
 
@@ -57,8 +57,8 @@ export default function EngagementTab() {
       showsVerticalScrollIndicator={false}
     >
       {/* Actions after viewing */}
-      <View style={styles.section}>
-        <SectionHeading title="Actions after viewing" />
+      <View style={[styles.section, styles.actionSection]}>
+        {!hideTopHeading && <SectionHeading title="Actions after viewing" />}
         {ACTION_ROWS.map((r, i) => (
           <SimpleRow key={i} label={r.label} value={r.value} field={r.field} />
         ))}
@@ -117,20 +117,24 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
   },
+  actionSection: {
+    paddingTop: 2,
+    paddingBottom: 0,
+  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderBottomWidth: 0,
   },
   rowLabel: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Inter_400Regular",
     color: "#111111",
   },
   rowValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     color: "#111111",
   },

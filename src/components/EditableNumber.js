@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Text, TextInput, StyleSheet, TouchableOpacity } from "react-native";
 import { useReelData } from "../context/ReelDataContext";
 
@@ -12,6 +12,10 @@ export default function EditableNumber({
   const { state } = useReelData();
   const [localValue, setLocalValue] = useState(String(value));
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    setLocalValue(String(value));
+  }, [value]);
 
   const displayValue = formatDisplay
     ? formatDisplay(String(value))

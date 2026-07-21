@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import { Animated, Easing, View, Text, StyleSheet, TouchableOpacity, Dimensions, Modal, ScrollView } from "react-native";
 import Svg, { Line, Polyline, Text as SvgText } from "react-native-svg";
-import { ChevronDown, Info } from "lucide-react-native";
+import { Info } from "lucide-react-native";
 import { C } from "../constants/colors";
+import { useReelData } from "../context/ReelDataContext";
+import EditableNumber from "../components/EditableNumber";
+import EditableText from "../components/EditableText";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SIDE_PAD = 16;
+const SIDE_PAD = 0;
 const PERIOD_OPTIONS = ["7 days", "14 days", "30 days", "60 days", "90 days", "180 days", "Custom"];
 
 const CHART_POINTS = [
@@ -30,6 +33,17 @@ const TOP_LOCATIONS = [
   { name: "Morocco", percent: 1.1 },
 ];
 
+const TOP_LOCATION_TABS = {
+  Countries: TOP_LOCATIONS,
+  "Towns/Cities": [
+    { name: "Lahore", percent: 18.4 },
+    { name: "Karachi", percent: 12.7 },
+    { name: "Mumbai", percent: 8.9 },
+    { name: "Johannesburg", percent: 6.1 },
+    { name: "Cape Town", percent: 4.8 },
+  ],
+};
+
 const ACTIVE_TIMES = [
   { day: "Su", value: 1 },
   { day: "M", value: 48 },
@@ -42,6 +56,12 @@ const ACTIVE_TIMES = [
 ];
 
 const ACTIVE_TIME_LABELS = ["12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p"];
+
+const TOP_TIMES = [
+  { day: "Wednesdays", range: "15-18" },
+  { day: "Thursdays", range: "15-18" },
+  { day: "Saturdays", range: "15-18" },
+];
 
 function buildChart(values, width, height) {
   const padLeft = 26;
@@ -69,15 +89,120 @@ function buildChart(values, width, height) {
   };
 }
 
-function BarRow({ label, percent, color }) {
+function AudienceGrowthPreview({ values }) {
+  const chartWidth = SCREEN_WIDTH - 48;
+  const chart = useMemo(() => buildChart(values, chartWidth, 132), [values, chartWidth]);
+
   return (
-    <View style={styles.barBlock}>
-      <View style={styles.barTopRow}>
-        <Text style={styles.barLabel}>{label}</Text>
+    <Svg width={chartWidth} height={132} viewBox={`0 0 ${chartWidth} 132`}>
+      <Line x1={chart.padLeft} y1={chart.toY(44)} x2={chartWidth - chart.padRight} y2={chart.toY(44)} stroke="#EDEDED" strokeWidth={1} />
+      <Line x1={chart.padLeft} y1={chart.toY(0)} x2={chartWidth - chart.padRight} y2={chart.toY(0)} stroke="#EDEDED" strokeWidth={1} />
+      <Line x1={chart.padLeft} y1={chart.toY(-44)} x2={chartWidth - chart.padRight} y2={chart.toY(-44)} stroke="#EDEDED" strokeWidth={1} />
+      <Polyline points={chart.points} fill="none" stroke="#D500CA" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+      <SvgText x={4} y={chart.toY(44) + 4} fontSize={11} fontFamily="Inter_400Regular" fill="#8E8E8E">
+        44
+      </SvgText>
+      <SvgText x={4} y={chart.toY(0) + 4} fontSize={11} fontFamily="Inter_400Regular" fill="#8E8E8E">
+        0
+      </SvgText>
+      <SvgText x={0} y={chart.toY(-44) + 4} fontSize={11} fontFamily="Inter_400Regular" fill="#8E8E8E">
+        -44
+      </SvgText>
+      <SvgText x={chart.padLeft} y={124} fontSize={11} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="start">
+        May 23
+      </SvgText>
+      <SvgText x={chart.padLeft + chart.chartW / 2} y={124} fontSize={11} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="middle">
+        Jun 4
+      </SvgText>
+      <SvgText x={chartWidth - chart.padRight} y={124} fontSize={11} fontFamily="Inter_400Regular" fill="#8E8E8E" textAnchor="end">
+        Jun 17
+      </SvgText>
+    </Svg>
+  );
+}
+
+function BarRow({ label, percent, color, trackRadius = 2, fillRadius = 2, labelGap = 8, rowGap = 14 }) {
+  return (
+    <View style={[styles.barBlock, { marginBottom: rowGap }]}>
+      <Text style={[styles.barLabel, { marginBottom: labelGap }]}>{label}</Text>
+      <View style={styles.barLineRow}>
+        <View style={[styles.barTrack, { borderRadius: trackRadius }]}>
+          <View style={[styles.barFill, { width: `${percent}%`, backgroundColor: color, borderRadius: fillRadius }]} />
+        </View>
         <Text style={styles.barPercent}>{percent.toFixed(1)}%</Text>
       </View>
-      <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${percent}%`, backgroundColor: color }]} />
+    </View>
+  );
+}
+
+function EditablePercentRow({
+  label,
+  value,
+  color,
+  editable,
+  onUpdateLabel,
+  onUpdateValue,
+  trackRadius = 2,
+  fillRadius = 2,
+  labelGap = 8,
+  rowGap = 14,
+}) {
+  return (
+    <View style={[styles.barBlock, { marginBottom: rowGap }]}>
+      {editable && onUpdateLabel ? (
+        <EditableText value={label} onSave={onUpdateLabel} style={[styles.barLabel, { marginBottom: labelGap }]} />
+      ) : (
+        <Text style={[styles.barLabel, { marginBottom: labelGap }]}>{label}</Text>
+      )}
+      <View style={styles.barLineRow}>
+        <View style={[styles.barTrack, { borderRadius: trackRadius }]}>
+          <View
+            style={[
+              styles.barFill,
+              { width: `${Math.max(value, 0)}%`, backgroundColor: color, borderRadius: fillRadius },
+            ]}
+          />
+        </View>
+        {editable && onUpdateValue ? (
+          <EditableNumber value={value} onSave={onUpdateValue} style={styles.barPercent} suffix="%" />
+        ) : (
+          <Text style={styles.barPercent}>{value.toFixed(1)}%</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function AgeRangeRow({
+  label,
+  value,
+  editable,
+  onUpdateLabel,
+  onUpdateValue,
+}) {
+  return (
+    <View style={styles.ageRow}>
+      {editable && onUpdateLabel ? (
+        <EditableText value={label} onSave={onUpdateLabel} style={styles.ageLabel} />
+      ) : (
+        <Text style={styles.ageLabel}>{label}</Text>
+      )}
+      <View style={styles.ageLineRow}>
+        <View style={styles.ageTrack}>
+          <View style={styles.ageWomenFill} />
+          <View style={styles.ageDivider} />
+          <View style={[styles.ageMenFill, { width: `${Math.max(value - 2.2, 0)}%` }]} />
+        </View>
+        {editable && onUpdateValue ? (
+          <EditableNumber
+            value={value}
+            onSave={onUpdateValue}
+            style={styles.agePercent}
+            suffix="%"
+          />
+        ) : (
+          <Text style={styles.agePercent}>{value.toFixed(1)}%</Text>
+        )}
       </View>
     </View>
   );
@@ -86,30 +211,97 @@ function BarRow({ label, percent, color }) {
 function LocationRow({ name, percent }) {
   return (
     <View style={styles.locationBlock}>
-      <View style={styles.locationLabelRow}>
-        <Text style={styles.locationLabel}>{name}</Text>
+      <Text style={styles.locationLabel}>{name}</Text>
+      <View style={styles.locationLineRow}>
+        <View style={styles.locationTrack}>
+          <View style={[styles.locationFill, { width: `${percent}%` }]} />
+        </View>
         <Text style={styles.locationPercent}>{percent.toFixed(1)}%</Text>
-      </View>
-      <View style={styles.locationTrack}>
-        <View style={[styles.locationFill, { width: `${percent}%` }]} />
       </View>
     </View>
   );
 }
 
+function AudienceGrowthEditor({ visible, values, onClose, onRandomize, onReset, onSaveValue }) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.editorOverlay}>
+        <View style={styles.editorSheet}>
+          <View style={styles.editorHandle} />
+          <View style={styles.editorHeader}>
+            <TouchableOpacity activeOpacity={0.7} onPress={onReset ?? onClose} style={styles.editorHeaderTextBtn}>
+              <Text style={styles.editorHeaderText}>Reset</Text>
+            </TouchableOpacity>
+            <Text style={styles.editorTitle}>Edit graph</Text>
+            <View style={styles.editorHeaderRight}>
+              <TouchableOpacity activeOpacity={0.7} onPress={onRandomize} style={styles.randomizeBtn}>
+                <Text style={styles.randomizeText}>Randomize</Text>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.7} onPress={onClose} style={styles.doneBtn}>
+                <Text style={styles.doneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.editorChartSection}>
+            <AudienceGrowthPreview values={values} />
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.editorList}>
+            {values.map((value, index) => (
+              <View key={`audience-point-${index}`} style={styles.editorRow}>
+                <Text style={styles.editorRowLabel}>Point {index + 1}</Text>
+                <EditableNumber
+                  value={value}
+                  onSave={(nextValue) => onSaveValue(index, nextValue)}
+                  style={styles.editorRowValue}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function InsightsAudienceTab() {
-  const chartWidth = SCREEN_WIDTH - SIDE_PAD * 2;
-  const chart = useMemo(() => buildChart(CHART_POINTS, chartWidth, 130), [chartWidth]);
-  const [selectedPeriod] = useState("30 days");
-  const [selectedLocationTab] = useState("Countries");
+  const { state, dispatch } = useReelData();
+  const chartWidth = SCREEN_WIDTH - 16;
+  const [graphEditorVisible, setGraphEditorVisible] = useState(false);
+  const [selectedLocationTab, setSelectedLocationTab] = useState("Countries");
   const [selectedActiveBar, setSelectedActiveBar] = useState(null);
   const activeBarTooltipAnim = useRef(ACTIVE_TIMES.map(() => new Animated.Value(0))).current;
 
-  const womenPercent = 14.4;
-  const menPercent = 85.6;
+  const womenPercent = Number(state.genderWomen ?? 14.4) || 0;
+  const menPercent = Number(state.genderMen ?? 85.6) || 0;
+  const audienceAgeRanges = Array.isArray(state.ageGroups) && state.ageGroups.length ? state.ageGroups : AGE_RANGES;
+  const audienceGrowthValues = useMemo(
+    () => (Array.isArray(state.audienceGrowthPoints) && state.audienceGrowthPoints.length ? state.audienceGrowthPoints : CHART_POINTS),
+    [state.audienceGrowthPoints]
+  );
+  const chart = useMemo(() => buildChart(audienceGrowthValues, chartWidth, 130), [chartWidth, audienceGrowthValues]);
+  const audienceLocations = useMemo(() => {
+    const source = selectedLocationTab === "Towns/Cities"
+      ? (state.topCities && state.topCities.length ? state.topCities : TOP_LOCATION_TABS["Towns/Cities"])
+      : (state.countries && state.countries.length ? state.countries : TOP_LOCATIONS);
+    if (Array.isArray(source) && source.length) {
+      return source.map((item) => ({
+        label: item.label || item.name,
+        value: Number(item.value) || 0,
+      }));
+    }
+    return (TOP_LOCATION_TABS[selectedLocationTab] || TOP_LOCATIONS).map((item) => ({
+      label: item.name,
+      value: item.percent,
+    }));
+  }, [selectedLocationTab, state.countries, state.topCities]);
+  const activeTimes = Array.isArray(state.activeTimes) && state.activeTimes.length ? state.activeTimes : ACTIVE_TIMES;
+  const activeBarHeights = useMemo(() => {
+    const maxValue = Math.max(...activeTimes.map((item) => Number(item.value) || 0), 1);
+    return activeTimes.map((item) => 56 + ((Number(item.value) || 0) / maxValue) * 100);
+  }, [activeTimes]);
 
   useEffect(() => {
-    ACTIVE_TIMES.forEach((_, index) => {
+    activeTimes.forEach((_, index) => {
       Animated.timing(activeBarTooltipAnim[index], {
         toValue: selectedActiveBar === index ? 1 : 0,
         duration: selectedActiveBar === index ? 180 : 120,
@@ -119,17 +311,36 @@ export default function InsightsAudienceTab() {
     });
   }, [activeBarTooltipAnim, selectedActiveBar]);
 
+  const randomizeAgeGroups = () => {
+    dispatch({ type: "RANDOMIZE_AGE_GROUPS" });
+  };
+
+  const randomizeActiveTimes = () => {
+    dispatch({ type: "RANDOMIZE_ACTIVE_TIMES" });
+  };
+
+  const randomizeGender = () => {
+    dispatch({ type: "RANDOMIZE_GENDER" });
+  };
+
   return (
     <View style={styles.content}>
-      <View style={styles.headerRow}>
-        <Text style={styles.heading}>Followers</Text>
-        <TouchableOpacity activeOpacity={0.7} style={styles.periodBtn}>
-          <Text style={styles.periodText}>{selectedPeriod}</Text>
-          <ChevronDown size={18} color="#707070" strokeWidth={2} />
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.bigValue}>6,960</Text>
+      {state.isEditing ? (
+        <EditableNumber
+          value={state.followersCount ?? 6960}
+          onSave={(val) =>
+            dispatch({
+              type: "UPDATE_FIELD",
+              field: "followersCount",
+              value: Math.max(0, parseInt(String(val).replace(/[^0-9]/g, ""), 10) || 0),
+            })
+          }
+          style={styles.bigValue}
+          formatDisplay={(n) => Number(n).toLocaleString()}
+        />
+      ) : (
+        <Text style={styles.bigValue}>6,960</Text>
+      )}
       <Text style={styles.growthText}>+5.9% <Text style={styles.growthMuted}>since May 23</Text></Text>
 
       <Text style={[styles.sectionTitle, styles.growthSectionTitle]}>Follower growth over time</Text>
@@ -173,18 +384,75 @@ export default function InsightsAudienceTab() {
           </SvgText>
         </Svg>
       </View>
+      {state.isEditing ? (
+        <TouchableOpacity activeOpacity={0.7} onPress={() => setGraphEditorVisible(true)} style={styles.editGraphBtn}>
+          <Text style={styles.editGraphText}>Edit graph</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <View style={styles.genderHeader}>
         <Text style={styles.sectionTitle}>Gender</Text>
         <Info size={16} color={C.black} strokeWidth={2.1} />
+        {state.isEditing ? (
+          <TouchableOpacity activeOpacity={0.7} onPress={randomizeGender} style={styles.randomizeBtn}>
+            <Text style={styles.randomizeText}>Randomize</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      <BarRow label="Women" percent={womenPercent} color="#D500CA" />
-      <BarRow label="Men" percent={menPercent} color="#9D1090" />
+      {state.isEditing ? (
+        <EditablePercentRow
+          label="Women"
+          value={womenPercent}
+          color="#D500CA"
+          editable
+          onUpdateLabel={(newLabel) => dispatch({ type: "UPDATE_FIELD", field: "genderWomenLabel", value: newLabel })}
+          onUpdateValue={(newVal) =>
+            dispatch({
+              type: "UPDATE_FIELD",
+              field: "genderWomen",
+              value: Math.max(0, parseFloat(String(newVal).replace(/[^0-9.]/g, "")) || 0),
+            })
+          }
+          trackRadius={2}
+          fillRadius={2}
+          labelGap={2}
+          rowGap={8}
+        />
+      ) : (
+        <BarRow label="Women" percent={womenPercent} color="#D500CA" trackRadius={2} fillRadius={2} labelGap={2} rowGap={8} />
+      )}
+      {state.isEditing ? (
+        <EditablePercentRow
+          label="Men"
+          value={menPercent}
+          color="#9D1090"
+          editable
+          onUpdateLabel={(newLabel) => dispatch({ type: "UPDATE_FIELD", field: "genderMenLabel", value: newLabel })}
+          onUpdateValue={(newVal) =>
+            dispatch({
+              type: "UPDATE_FIELD",
+              field: "genderMen",
+              value: Math.max(0, parseFloat(String(newVal).replace(/[^0-9.]/g, "")) || 0),
+            })
+          }
+          trackRadius={2}
+          fillRadius={2}
+          labelGap={2}
+          rowGap={8}
+        />
+      ) : (
+        <BarRow label="Men" percent={menPercent} color="#9D1090" trackRadius={2} fillRadius={2} labelGap={2} rowGap={8} />
+      )}
 
       <View style={styles.ageHeader}>
         <Text style={styles.sectionTitle}>Age range</Text>
         <Info size={16} color={C.black} strokeWidth={2.1} />
+        {state.isEditing ? (
+          <TouchableOpacity activeOpacity={0.7} onPress={randomizeAgeGroups} style={styles.randomizeBtn}>
+            <Text style={styles.randomizeText}>Randomize</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <View style={styles.ageLegend}>
@@ -199,19 +467,32 @@ export default function InsightsAudienceTab() {
       </View>
 
       <View style={styles.ageBars}>
-        {AGE_RANGES.map((group) => (
-          <View key={group.label} style={styles.ageRow}>
-            <View style={styles.ageRowTop}>
-              <Text style={styles.ageLabel}>{group.label}</Text>
-              <Text style={styles.agePercent}>{group.percent.toFixed(1)}%</Text>
-            </View>
-            <View style={styles.ageTrack}>
-              <View style={styles.ageWomenFill} />
-              <View style={styles.ageDivider} />
-              <View style={[styles.ageMenFill, { width: `${Math.max(group.percent - 2.2, 0)}%` }]} />
-            </View>
-          </View>
-        ))}
+        {audienceAgeRanges.map((group, index) =>
+          state.isEditing ? (
+            <AgeRangeRow
+              key={group.label}
+              label={group.label}
+              value={Number(group.value) || 0}
+              editable
+              onUpdateLabel={(newLabel) =>
+                dispatch({
+                  type: "UPDATE_AGE_GROUP",
+                  index,
+                  updates: { label: newLabel },
+                })
+              }
+              onUpdateValue={(newVal) =>
+                dispatch({
+                  type: "UPDATE_AGE_GROUP",
+                  index,
+                  updates: { value: Math.max(0, parseFloat(String(newVal).replace(/[^0-9.]/g, "")) || 0) },
+                })
+              }
+            />
+          ) : (
+            <AgeRangeRow key={group.label} label={group.label} value={Number(group.value) || 0} />
+          )
+        )}
       </View>
 
       <View style={styles.locationsHeader}>
@@ -220,27 +501,87 @@ export default function InsightsAudienceTab() {
       </View>
 
       <View style={styles.locationTabs}>
-        <View style={[styles.locationTab, selectedLocationTab === "Countries" && styles.locationTabActive]}>
-          <Text style={[styles.locationTabText, styles.locationTabTextActive]}>Countries</Text>
-        </View>
-        <View style={styles.locationTab}>
-          <Text style={styles.locationTabText}>Cities</Text>
-        </View>
+        {["Countries", "Towns/Cities"].map((tab) => {
+          const active = selectedLocationTab === tab;
+          return (
+            <TouchableOpacity
+              key={tab}
+              activeOpacity={0.7}
+              style={[styles.locationTab, active && styles.locationTabActive]}
+              onPress={() => setSelectedLocationTab(tab)}
+            >
+              <Text style={[styles.locationTabText, active && styles.locationTabTextActive]}>{tab}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.locationsList}>
-        {TOP_LOCATIONS.map((location) => (
-          <LocationRow key={location.name} name={location.name} percent={location.percent} />
-        ))}
+        {audienceLocations.map((location, index) =>
+          state.isEditing ? (
+            <View key={`${location.label}-${index}`} style={styles.locationBlock}>
+              <EditableText
+                value={location.label}
+                onSave={(newLabel) =>
+                  dispatch({
+                    type: "UPDATE_FIELD",
+                    field: selectedLocationTab === "Towns/Cities" ? "topCities" : "countries",
+                    value: audienceLocations.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? {
+                            ...item,
+                            label: newLabel,
+                            name: newLabel,
+                          }
+                        : item
+                    ),
+                  })
+                }
+                style={styles.locationLabel}
+              />
+              <View style={styles.locationLineRow}>
+                <View style={styles.locationTrack}>
+                  <View style={[styles.locationFill, { width: `${location.value}%` }]} />
+                </View>
+                <EditableNumber
+                  value={location.value}
+                  onSave={(newVal) =>
+                    dispatch({
+                      type: "UPDATE_FIELD",
+                      field: selectedLocationTab === "Towns/Cities" ? "topCities" : "countries",
+                      value: audienceLocations.map((item, itemIndex) =>
+                        itemIndex === index
+                          ? {
+                              ...item,
+                              value: Math.max(0, parseFloat(String(newVal).replace(/[^0-9.]/g, "")) || 0),
+                            }
+                          : item
+                      ),
+                    })
+                  }
+                  style={styles.locationPercent}
+                  suffix="%"
+                />
+              </View>
+            </View>
+          ) : (
+            <LocationRow key={`${location.label}-${index}`} name={location.label} percent={location.value} />
+          )
+        )}
       </View>
 
       <View style={styles.activeTimesHeader}>
         <Text style={styles.sectionTitle}>Follower active times</Text>
         <Info size={16} color={C.black} strokeWidth={2.1} />
+        {state.isEditing ? (
+          <TouchableOpacity activeOpacity={0.7} onPress={randomizeActiveTimes} style={styles.randomizeBtn}>
+            <Text style={styles.randomizeText}>Randomize</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <View style={styles.activeDayRow}>
-        {ACTIVE_TIMES.map((item, index) => {
+        {(activeTimes || []).map((item, index) => {
           const active = index === 0;
           return (
             <View key={`${item.day}-${index}`} style={[styles.activeDayChip, active && styles.activeDayChipActive]}>
@@ -251,8 +592,8 @@ export default function InsightsAudienceTab() {
       </View>
 
       <View style={styles.activeBars}>
-        {ACTIVE_TIMES.map((item, index) => {
-          const heights = [28, 128, 182, 208, 198, 216, 166, 146];
+        {activeTimes.map((item, index) => {
+          const heights = activeBarHeights;
           const active = selectedActiveBar === index;
           const dimmed = selectedActiveBar !== null && !active;
           return (
@@ -302,6 +643,66 @@ export default function InsightsAudienceTab() {
           );
         })}
       </View>
+
+      <View style={styles.topTimesSection}>
+        <Text style={styles.topTimesTitle}>Top times</Text>
+        {(state.topTimes && state.topTimes.length ? state.topTimes : TOP_TIMES).map((item, index, list) => (
+          <View
+            key={item.day}
+            style={[styles.topTimesItem, index === list.length - 1 && styles.topTimesItemLast]}
+          >
+            {state.isEditing ? (
+              <EditableText
+                value={item.day}
+                onSave={(newDay) =>
+                  dispatch({
+                    type: "UPDATE_FIELD",
+                    field: "topTimes",
+                    value: (state.topTimes && state.topTimes.length ? state.topTimes : TOP_TIMES).map((row, rowIndex) =>
+                      rowIndex === index ? { ...row, day: newDay } : row
+                    ),
+                  })
+                }
+                style={styles.topTimesDay}
+              />
+            ) : (
+              <Text style={styles.topTimesDay}>{item.day}</Text>
+            )}
+            {state.isEditing ? (
+              <EditableText
+                value={item.range}
+                onSave={(newRange) =>
+                  dispatch({
+                    type: "UPDATE_FIELD",
+                    field: "topTimes",
+                    value: (state.topTimes && state.topTimes.length ? state.topTimes : TOP_TIMES).map((row, rowIndex) =>
+                      rowIndex === index ? { ...row, range: newRange } : row
+                    ),
+                  })
+                }
+                style={styles.topTimesRange}
+              />
+            ) : (
+              <Text style={styles.topTimesRange}>{item.range}</Text>
+            )}
+          </View>
+        ))}
+      </View>
+
+      <AudienceGrowthEditor
+        visible={graphEditorVisible}
+        values={audienceGrowthValues}
+        onClose={() => setGraphEditorVisible(false)}
+        onRandomize={() => dispatch({ type: "RANDOMIZE_AUDIENCE_GROWTH" })}
+        onReset={() => dispatch({ type: "RESET_AUDIENCE_GROWTH" })}
+        onSaveValue={(index, nextValue) =>
+          dispatch({
+            type: "UPDATE_AUDIENCE_GROWTH",
+            index,
+            value: Math.max(-44, Math.min(44, parseFloat(String(nextValue).replace(/[^0-9.-]/g, "")) || 0)),
+          })
+        }
+      />
     </View>
   );
 }
@@ -309,41 +710,19 @@ export default function InsightsAudienceTab() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: SIDE_PAD,
-    paddingTop: 30,
-    paddingBottom: 28,
+    paddingTop: 0,
+    paddingBottom: 0,
     backgroundColor: C.white,
   },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  heading: {
-    fontSize: 19,
-    color: C.black,
-    fontFamily: "Inter_400Regular",
-  },
-  periodBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  periodText: {
-    fontSize: 17,
-    color: "#707070",
-    fontFamily: "Inter_500Medium",
-    fontWeight: "500",
-  },
   bigValue: {
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 28,
+    lineHeight: 32,
     color: C.black,
     fontFamily: "Inter_500Medium",
     marginBottom: 2,
   },
   growthText: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#16A34A",
     fontFamily: "Inter_500Medium",
     marginBottom: 28,
@@ -353,12 +732,12 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 15,
     color: C.black,
     fontFamily: "Inter_500Medium",
   },
   growthSectionTitle: {
-    marginTop: 16,
+    marginTop: 0,
   },
   filterRow: {
     flexDirection: "row",
@@ -381,7 +760,7 @@ const styles = StyleSheet.create({
     borderColor: "#F3F4F6",
   },
   filterText: {
-    fontSize: 13,
+    fontSize: 11,
     color: C.black,
     fontFamily: "Inter_400Regular",
   },
@@ -392,40 +771,71 @@ const styles = StyleSheet.create({
     marginTop: 50,
     marginBottom: 28,
   },
+  editGraphBtn: {
+    alignSelf: "flex-start",
+    marginTop: -6,
+    marginBottom: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#DD2A7B",
+    backgroundColor: "#FFF8FD",
+  },
+  editGraphText: {
+    fontSize: 12,
+    color: "#DD2A7B",
+    fontFamily: "Inter_600SemiBold",
+  },
   genderHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginBottom: 12,
   },
-  barBlock: {
-    marginBottom: 14,
-  },
-  barTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  randomizeBtn: {
+    marginLeft: "auto",
+    minHeight: 28,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#E2E2E2",
+    backgroundColor: "#F7F7F9",
     alignItems: "center",
-    marginBottom: 8,
+    justifyContent: "center",
+  },
+  randomizeText: {
+    fontSize: 11,
+    color: C.black,
+    fontFamily: "Inter_500Medium",
   },
   barLabel: {
-    fontSize: 15,
+    fontSize: 13,
     color: C.black,
     fontFamily: "Inter_400Regular",
+  },
+  barLineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   barPercent: {
-    fontSize: 15,
+    fontSize: 13,
     color: C.black,
     fontFamily: "Inter_400Regular",
+    width: 52,
+    textAlign: "right",
   },
   barTrack: {
+    flex: 1,
     height: 8,
-    borderRadius: 999,
+    borderRadius: 2,
     backgroundColor: "#F4F5F8",
     overflow: "hidden",
   },
   barFill: {
     height: "100%",
-    borderRadius: 999,
+    borderRadius: 2,
   },
   ageHeader: {
     flexDirection: "row",
@@ -454,30 +864,33 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendText: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#8E8E8E",
     fontFamily: "Inter_400Regular",
   },
   ageRow: {
     marginBottom: 16,
   },
-  ageRowTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
   ageLabel: {
-    fontSize: 13,
-    color: "#7C7C7C",
-    fontFamily: "Inter_400Regular",
-  },
-  agePercent: {
-    fontSize: 13,
+    fontSize: 11,
     color: C.black,
     fontFamily: "Inter_400Regular",
+    marginBottom: 8,
+  },
+  ageLineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  agePercent: {
+    fontSize: 11,
+    color: C.black,
+    fontFamily: "Inter_400Regular",
+    width: 52,
+    textAlign: "right",
   },
   ageTrack: {
+    flex: 1,
     flexDirection: "row",
     height: 8,
     borderRadius: 2,
@@ -525,7 +938,7 @@ const styles = StyleSheet.create({
     borderColor: "#F3F4F6",
   },
   locationTabText: {
-    fontSize: 13,
+    fontSize: 11,
     color: C.black,
     fontFamily: "Inter_400Regular",
   },
@@ -536,19 +949,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 14,
-    marginBottom: 16,
+    marginTop: 8,
+    marginBottom: 8,
   },
   activeDayRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 18,
+    gap: 10,
+    marginBottom: 2,
   },
   activeDayChip: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "#D9D9D9",
     alignItems: "center",
@@ -560,7 +973,7 @@ const styles = StyleSheet.create({
     borderColor: "#F3F4F6",
   },
   activeDayChipText: {
-    fontSize: 14,
+    fontSize: 11,
     color: C.black,
     fontFamily: "Inter_400Regular",
   },
@@ -571,14 +984,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    width: SCREEN_WIDTH,
-    alignSelf: "center",
-    marginLeft: -SIDE_PAD,
-    marginRight: -SIDE_PAD,
-    height: 290,
-    paddingHorizontal: 8,
+    width: "100%",
+    alignSelf: "stretch",
+    height: 240,
+    paddingHorizontal: 4,
     paddingBottom: 0,
     marginBottom: 0,
+    columnGap: 6,
   },
   activeBarItem: {
     flex: 1,
@@ -619,12 +1031,12 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 2,
   },
   activeBarTooltipText: {
-    fontSize: 13,
+    fontSize: 11,
     color: C.black,
     fontFamily: "Inter_500Medium",
   },
   activeBar: {
-    width: 42,
+    width: "100%",
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
     borderBottomLeftRadius: 10,
@@ -636,10 +1048,123 @@ const styles = StyleSheet.create({
   activeTimeLabel: {
     width: "100%",
     textAlign: "center",
-    fontSize: 11,
+    fontSize: 9,
     color: "#8E8E8E",
     fontFamily: "Inter_400Regular",
     zIndex: 1,
+  },
+  topTimesSection: {
+    marginTop: 18,
+    paddingBottom: 0,
+  },
+  topTimesTitle: {
+    fontSize: 14,
+    color: C.black,
+    fontFamily: "Inter_500Medium",
+    marginBottom: 10,
+  },
+  topTimesItem: {
+    marginBottom: 14,
+  },
+  topTimesItemLast: {
+    marginBottom: 0,
+  },
+  topTimesDay: {
+    fontSize: 13,
+    color: C.black,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 3,
+  },
+  topTimesRange: {
+    fontSize: 11,
+    color: C.black,
+    fontFamily: "Inter_400Regular",
+  },
+  editorOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.34)",
+    justifyContent: "flex-end",
+  },
+  editorSheet: {
+    backgroundColor: C.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 18,
+    maxHeight: "82%",
+  },
+  editorHandle: {
+    width: 48,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#D9D9D9",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  editorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  editorHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  editorHeaderTextBtn: {
+    minWidth: 42,
+    alignItems: "flex-start",
+  },
+  editorHeaderText: {
+    fontSize: 14,
+    color: C.black,
+    fontFamily: "Inter_400Regular",
+  },
+  editorTitle: {
+    fontSize: 15,
+    color: C.black,
+    fontFamily: "Inter_600SemiBold",
+  },
+  editorChartSection: {
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  doneBtn: {
+    minHeight: 30,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    backgroundColor: "#F3F4F6",
+  },
+  doneText: {
+    fontSize: 12,
+    color: C.black,
+    fontFamily: "Inter_500Medium",
+  },
+  editorList: {
+    paddingBottom: 12,
+  },
+  editorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  editorRowLabel: {
+    fontSize: 13,
+    color: C.black,
+    fontFamily: "Inter_500Medium",
+  },
+  editorRowValue: {
+    fontSize: 15,
+    color: C.black,
+    fontFamily: "Inter_500Medium",
+    textAlign: "right",
   },
   locationsList: {
     paddingBottom: 24,
@@ -647,23 +1172,26 @@ const styles = StyleSheet.create({
   locationBlock: {
     marginBottom: 14,
   },
-  locationLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  locationLabel: {
+    fontSize: 13,
+    color: C.black,
+    fontFamily: "Inter_400Regular",
     marginBottom: 8,
   },
-  locationLabel: {
-    fontSize: 15,
-    color: C.black,
-    fontFamily: "Inter_400Regular",
+  locationLineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   locationPercent: {
-    fontSize: 15,
+    fontSize: 13,
     color: C.black,
     fontFamily: "Inter_400Regular",
+    width: 52,
+    textAlign: "right",
   },
   locationTrack: {
+    flex: 1,
     height: 8,
     borderRadius: 2,
     backgroundColor: "#F4F5F8",

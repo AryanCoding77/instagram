@@ -27,9 +27,14 @@ import {
   UserRound,
 } from "lucide-react-native";
 import { useReelData } from "../context/ReelDataContext";
+import { useProfileData } from "../context/ProfileDataContext";
 import { C } from "../constants/colors";
+import GraphEditorSheet from "../components/GraphEditorSheet";
+import EditableNumber from "../components/EditableNumber";
+import EditableText from "../components/EditableText";
 import InsightsContentTab from "./InsightsContentTab";
 import InsightsAudienceTab from "./InsightsAudienceTab";
+import { formatCompactCountWhole, formatCount } from "../constants/profileData";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SIDE_PAD = 16;
@@ -49,20 +54,20 @@ const CHART_POINTS = [
 ];
 
 const CONTENT_TYPES = [
-  { label: "Reels", value: "23K", percent: 96 },
+  { label: "Reels", value: "23k", percent: 96 },
   { label: "Stories", value: "28", percent: 2 },
   { label: "Posts", value: "0", percent: 0 },
   { label: "Live videos", value: "0", percent: 0 },
 ];
 
-const TOP_CONTENT_ITEMS = [
-  { id: "1", uri: "https://picsum.photos/seed/topviews1/300/420", value: "60K" },
-  { id: "2", uri: "https://picsum.photos/seed/topviews2/300/420", value: "48K" },
-  { id: "3", uri: "https://picsum.photos/seed/topviews3/300/420", value: "47K" },
-  { id: "4", uri: "https://picsum.photos/seed/topviews4/300/420", value: "36K" },
+const DEFAULT_TOP_CONTENT_ITEMS = [
+  { id: "1", uri: "https://picsum.photos/seed/topviews1/300/420", value: "60k" },
+  { id: "2", uri: "https://picsum.photos/seed/topviews2/300/420", value: "48k" },
+  { id: "3", uri: "https://picsum.photos/seed/topviews3/300/420", value: "47k" },
+  { id: "4", uri: "https://picsum.photos/seed/topviews4/300/420", value: "36k" },
 ];
 
-const TOP_CONTENT_REELS_ICON_ASSET = require("../../assets/icons/reels-icon.png");
+const TOP_CONTENT_REELS_ICON_ASSET = require("../../assets/icons/video-views.png");
 
 const TOP_CONTENT_EYE_ASSET = require("../../assets/icons/views-eye.png");
 
@@ -70,6 +75,86 @@ const CHART_HEIGHT = 160;
 const CHART_LABEL_Y = 148;
 const CHART_TOOLTIP_WIDTH = 64;
 const CHART_TOOLTIP_HEIGHT = 62;
+
+function formatCompactCount(value) {
+  const n = Number(value) || 0;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return `${n}`;
+}
+
+function formatRelativeTime(timestamp) {
+  if (!timestamp) {
+    return "";
+  }
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const diffHours = Math.max(1, Math.round((Date.now() - date.getTime()) / 36e5));
+  if (diffHours < 24) {
+    return `${diffHours}h`;
+  }
+  return `${Math.max(1, Math.round(diffHours / 24))}d`;
+}
+
+function buildTopContentItems(reels = []) {
+  const sorted = [...reels]
+    .filter(Boolean)
+    .sort((a, b) => (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0));
+
+  const mapped = sorted.slice(0, 4).map((item, index) => ({
+    id: item.id || item.shortCode || String(index),
+    uri: item.thumbnailUri || item.videoUrl || "",
+    value: formatCompactCountWhole(item.viewCount || 0),
+    source: item,
+  }));
+
+  return mapped.length ? mapped : DEFAULT_TOP_CONTENT_ITEMS;
+}
+
+function buildContentTypes(reels = []) {
+  const totalReelViews = reels.reduce((sum, item) => sum + (Number(item.viewCount) || 0), 0);
+
+  if (!totalReelViews) {
+    return [
+      { label: "Reels", value: "23k", percent: 96 },
+      { label: "Stories", value: "28", percent: 2 },
+      { label: "Posts", value: "0", percent: 0 },
+      { label: "Live videos", value: "0", percent: 0 },
+    ];
+  }
+
+    return [
+      { label: "Reels", value: formatCompactCountWhole(totalReelViews), percent: 100 },
+      { label: "Stories", value: "0", percent: 0 },
+      { label: "Posts", value: "0", percent: 0 },
+      { label: "Live videos", value: "0", percent: 0 },
+  ];
+}
+
+function buildSelectedPostPayload(item, profile) {
+  if (!item) {
+    return null;
+  }
+
+  return {
+    id: item.id || item.shortCode || "",
+    username: item.username || profile?.username || "",
+    displayName: item.displayName || profile?.displayName || "",
+    avatarUri: profile?.profilePicUri || "",
+    thumbnailUri: item.thumbnailUri || item.videoUrl || "",
+    videoUrl: item.videoUrl || null,
+    views: item.viewCount || 0,
+    likes: item.likesCount || 0,
+    comments: item.commentsCount || 0,
+    caption: item.caption || "",
+    timestamp: item.timestamp || "",
+    videoDuration: item.videoDuration || null,
+    ownerUsername: item.username || profile?.username || "",
+    ownerFullName: item.displayName || profile?.displayName || "",
+  };
+}
 
 const INTERACTION_FILTERS = [
   { label: "All" },
@@ -83,7 +168,7 @@ const INTERACTION_FILTERS = [
 
 const INTERACTION_TYPES = [
   { label: "Reels", value: "49K", percent: 96 },
-  { label: "Stories", value: "1.1K", percent: 2 },
+  { label: "Stories", value: "1.1k", percent: 2 },
   { label: "Posts", value: "117", percent: 1 },
   { label: "Live videos", value: "0", percent: 0 },
 ];
@@ -91,37 +176,37 @@ const INTERACTION_TYPES = [
 const INTERACTION_TYPE_SETS = {
   All: INTERACTION_TYPES,
   Likes: [
-    { label: "Reels", value: "31K", percent: 96 },
+    { label: "Reels", value: "31k", percent: 96 },
     { label: "Stories", value: "820", percent: 3 },
     { label: "Posts", value: "94", percent: 1 },
     { label: "Live videos", value: "0", percent: 0 },
   ],
   Comments: [
-    { label: "Reels", value: "4.8K", percent: 90 },
+    { label: "Reels", value: "4.8k", percent: 90 },
     { label: "Stories", value: "290", percent: 7 },
     { label: "Posts", value: "44", percent: 3 },
     { label: "Live videos", value: "0", percent: 0 },
   ],
   Reposts: [
-    { label: "Reels", value: "2.1K", percent: 86 },
+    { label: "Reels", value: "2.1k", percent: 86 },
     { label: "Stories", value: "160", percent: 9 },
     { label: "Posts", value: "28", percent: 5 },
     { label: "Live videos", value: "0", percent: 0 },
   ],
   Saves: [
-    { label: "Reels", value: "7.4K", percent: 91 },
+    { label: "Reels", value: "7.4k", percent: 91 },
     { label: "Stories", value: "430", percent: 6 },
     { label: "Posts", value: "70", percent: 3 },
     { label: "Live videos", value: "0", percent: 0 },
   ],
   Shares: [
-    { label: "Reels", value: "2.9K", percent: 88 },
+    { label: "Reels", value: "2.9k", percent: 88 },
     { label: "Stories", value: "210", percent: 8 },
     { label: "Posts", value: "26", percent: 4 },
     { label: "Live videos", value: "0", percent: 0 },
   ],
   Replies: [
-    { label: "Reels", value: "1.1K", percent: 84 },
+    { label: "Reels", value: "1.1k", percent: 84 },
     { label: "Stories", value: "94", percent: 10 },
     { label: "Posts", value: "15", percent: 6 },
     { label: "Live videos", value: "0", percent: 0 },
@@ -134,7 +219,7 @@ const PROFILE_ACTIVITY = [
   { label: "Business address taps", value: "0", icon: Store },
 ];
 
-function BackArrowIcon({ size = 30, color = "#111111" }) {
+function BackArrowIcon({ size = 28, color = "#111111" }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 30 30" fill="none">
       <Path
@@ -148,14 +233,14 @@ function BackArrowIcon({ size = 30, color = "#111111" }) {
   );
 }
 
-function buildChartPath(values, width, height) {
+function buildChartPath(values, width, height, maxValue = 262) {
   const padLeft = 44;
   const padRight = 8;
-  const padTop = 10;
+  const padTop = 14;
   const padBottom = 34;
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
-  const max = 262;
+  const max = Math.max(maxValue, 1);
 
   const toX = (i) => padLeft + (i / (values.length - 1)) * chartW;
   const toY = (v) => Math.max(padTop + 1, padTop + (1 - v / max) * chartH);
@@ -182,21 +267,193 @@ function formatChartDate(index, total) {
   return `${months[date.getMonth()]} ${date.getDate()}`;
 }
 
+function OverviewBarRow({ item, maxValue, editable, onUpdateLabel, onUpdateValue, onDelete }) {
+  const fillPercent = maxValue > 0 ? Math.max((item.value / maxValue) * 100, item.value > 0 ? 4 : 0) : 0;
+
+  return (
+    <View style={styles.barGroup}>
+      <View style={styles.barLabelRow}>
+        {editable && onDelete ? (
+          <TouchableOpacity onPress={onDelete} style={styles.editDeleteBtn} activeOpacity={0.7}>
+            <Text style={styles.editDeleteText}>×</Text>
+          </TouchableOpacity>
+        ) : null}
+        {editable && onUpdateLabel ? (
+          <EditableText value={item.label} onSave={onUpdateLabel} style={styles.barLabel} />
+        ) : (
+          <Text style={styles.barLabel}>{item.label}</Text>
+        )}
+      </View>
+      <View style={styles.barRow}>
+        <View style={styles.barTrack}>
+          <View style={[styles.barFill, { width: `${fillPercent}%` }]}>
+            <View style={[styles.barFillFollowers, { width: fillPercent > 0 ? "8%" : "0%" }]} />
+            <View style={styles.barSeparator} />
+            <View style={[styles.barFillNonFollowers, { width: fillPercent > 0 ? "92%" : "0%" }]} />
+          </View>
+        </View>
+        {editable && onUpdateValue ? (
+          <EditableNumber
+            value={item.value}
+            onSave={onUpdateValue}
+            style={styles.barValue}
+          />
+        ) : (
+          <Text style={styles.barValue}>{formatCount(item.value)}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function ProfileActivityRow({ item, editable, onUpdateLabel, onUpdateValue }) {
+  return (
+    <View style={styles.profileRow}>
+      <View style={styles.profileIconCircle}>
+        <Info size={18} color={C.black} strokeWidth={2} />
+      </View>
+      {editable && onUpdateLabel ? (
+        <EditableText value={item.label} onSave={onUpdateLabel} style={styles.profileRowLabel} />
+      ) : (
+        <Text style={styles.profileRowLabel}>{item.label}</Text>
+      )}
+      {editable && onUpdateValue ? (
+        <EditableNumber value={item.value} onSave={onUpdateValue} style={styles.profileRowValue} />
+      ) : (
+        <Text style={styles.profileRowValue}>{formatCount(item.value)}</Text>
+      )}
+    </View>
+  );
+}
+
 export default function InsightsDetailScreen() {
-  const { dispatch } = useReelData();
+  const { state, dispatch } = useReelData();
+  const { state: profileState } = useProfileData();
   const scrollRef = useRef(null);
   const [activeTab, setActiveTab] = useState("Overview");
   const [periodMenuOpen, setPeriodMenuOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("30 days");
   const [activeChartPoint, setActiveChartPoint] = useState(null);
   const [activeInteractionFilter, setActiveInteractionFilter] = useState("All");
+  const [graphEditorVisible, setGraphEditorVisible] = useState(false);
   const chartWidth = SCREEN_WIDTH - SIDE_PAD * 2;
+  const profile = profileState.profile || {};
+  const profileReels = Array.isArray(profile.reels) ? profile.reels : [];
+  const effectiveReels = useMemo(() => {
+    const selected = state.selectedPostData;
+    if (!selected) {
+      return profileReels;
+    }
 
+    const selectedId = selected.id || selected.shortCode || selected.thumbnailUri;
+    return profileReels.map((item) => {
+      const matches =
+        item.id === selectedId ||
+        item.shortCode === selected.shortCode ||
+        item.thumbnailUri === selected.thumbnailUri;
+
+      if (!matches) {
+        return item;
+      }
+
+      return {
+        ...item,
+        ...selected,
+        thumbnailUri: selected.thumbnailUri || item.thumbnailUri,
+        videoUrl: selected.videoUrl ?? item.videoUrl ?? null,
+        viewCount: selected.viewCount ?? selected.views ?? item.viewCount,
+        likesCount: selected.likesCount ?? selected.likes ?? item.likesCount,
+        commentsCount: selected.commentsCount ?? selected.comments ?? item.commentsCount,
+        caption: selected.caption || item.caption,
+        timestamp: selected.timestamp || item.timestamp,
+        username: selected.username || item.username,
+        displayName: selected.displayName || item.displayName,
+      };
+    });
+  }, [profileReels, state.selectedPostData]);
+
+  const chartValues = useMemo(() => {
+    const points = Array.isArray(state.viewsOverTime) ? state.viewsOverTime : [];
+    if (!points.length) {
+      return CHART_POINTS;
+    }
+    return points.map((point) => Number(point?.thisReel) || 0);
+  }, [state.viewsOverTime]);
+  const chartLabels = useMemo(() => {
+    const points = Array.isArray(state.viewsOverTime) ? state.viewsOverTime : [];
+    if (!points.length) {
+      return CHART_POINTS.map((_, index) => formatChartDate(index, CHART_POINTS.length));
+    }
+    return points.map((point, index) => point?.label || formatChartDate(index, points.length));
+  }, [state.viewsOverTime]);
+  const chartMax = useMemo(() => {
+    const rawMax = Math.max(...chartValues, 1);
+    const padded = rawMax * 1.12;
+    if (padded >= 1000) return Math.ceil(padded / 1000) * 1000;
+    if (padded >= 100) return Math.ceil(padded / 100) * 100;
+    if (padded >= 10) return Math.ceil(padded / 10) * 10;
+    return Math.ceil(padded);
+  }, [chartValues]);
   const chart = useMemo(
-    () => buildChartPath(CHART_POINTS, chartWidth, CHART_HEIGHT),
-    [chartWidth]
+    () => buildChartPath(chartValues, chartWidth, CHART_HEIGHT, chartMax),
+    [chartWidth, chartValues, chartMax]
   );
+  const overviewCards = useMemo(() => {
+    const selectedPost = state.selectedPostData || effectiveReels[0] || null;
+    const selectedViews = selectedPost?.views ?? selectedPost?.viewCount ?? profile.dashboardViews ?? 0;
+    const selectedInteractions =
+      (selectedPost?.likes ?? selectedPost?.likesCount ?? 0) +
+      (selectedPost?.comments ?? selectedPost?.commentsCount ?? 0);
+
+    return [
+      {
+        label: "Views",
+        value: Number(selectedViews) || 0,
+        display: formatCompactCountWhole(selectedViews),
+        field: "views",
+        active: true,
+      },
+      {
+        label: "Net followers",
+        value: Number(state.netFollowers ?? 386) || 0,
+        display: `+${formatCompactCountWhole(state.netFollowers ?? 386)}`,
+        field: "netFollowers",
+      },
+      {
+        label: "Interactions",
+        value: Number((state.interactions ?? selectedInteractions) || Number(METRIC_CARDS[2].value.replace(/,/g, ""))) || 0,
+        display: formatCompactCount((state.interactions ?? selectedInteractions) || Number(METRIC_CARDS[2].value.replace(/,/g, ""))),
+        field: "interactions",
+      },
+    ];
+  }, [profile.dashboardViews, effectiveReels, state.selectedPostData, state.interactions, state.netFollowers]);
+  const topContentItems = useMemo(() => buildTopContentItems(effectiveReels), [effectiveReels]);
+  const contentTypeItems = useMemo(() => {
+    const rows = Array.isArray(state.contentTypeBreakdown) && state.contentTypeBreakdown.length
+      ? state.contentTypeBreakdown
+      : buildContentTypes(effectiveReels);
+    return rows.map((row) => ({
+      ...row,
+      value: Number(row.value) || 0,
+    }));
+  }, [state.contentTypeBreakdown, effectiveReels]);
+  const profileActivityRows = useMemo(() => {
+    const rows = Array.isArray(state.profileActivity) && state.profileActivity.length
+      ? state.profileActivity
+      : [
+          { label: "Profile visits", value: state.profileVisits || 0 },
+          { label: "Bio link taps", value: 0 },
+          { label: "Business address taps", value: 0 },
+        ];
+    return rows.map((row) => ({
+      ...row,
+      value: Number(row.value) || 0,
+    }));
+  }, [state.profileActivity, state.profileVisits]);
   const interactionTypes = INTERACTION_TYPE_SETS[activeInteractionFilter] || INTERACTION_TYPES;
+  const sharedHeaderTitle = activeTab === "Audience" ? "Followers" : "All content";
+  const showContentChevron = activeTab === "Content";
+  const titleEditable = activeTab !== "Content";
 
   useEffect(() => {
     setPeriodMenuOpen(false);
@@ -206,16 +463,17 @@ export default function InsightsDetailScreen() {
 
   const updateChartPoint = (touchX) => {
     const x = Math.max(chart.padLeft, Math.min(touchX, chartWidth - chart.padRight));
-    const index = Math.round(((x - chart.padLeft) / chart.chartW) * (CHART_POINTS.length - 1));
-    const clampedIndex = Math.max(0, Math.min(CHART_POINTS.length - 1, index));
+    const lastIndex = Math.max(chartValues.length - 1, 0);
+    const index = Math.round(((x - chart.padLeft) / chart.chartW) * lastIndex);
+    const clampedIndex = Math.max(0, Math.min(lastIndex, index));
     if (activeChartPoint?.index === clampedIndex) {
       return;
     }
-    const value = CHART_POINTS[clampedIndex];
+    const value = chartValues[clampedIndex];
     setActiveChartPoint({
       index: clampedIndex,
       value,
-      label: formatChartDate(clampedIndex, CHART_POINTS.length),
+      label: chartLabels[clampedIndex] || formatChartDate(clampedIndex, chartValues.length),
       x: chart.toX(clampedIndex),
       y: chart.toY(value),
     });
@@ -235,10 +493,10 @@ export default function InsightsDetailScreen() {
   );
 
   useEffect(() => {
-    TOP_CONTENT_ITEMS.forEach((item) => {
+    topContentItems.forEach((item) => {
       Image.prefetch(item.uri);
     });
-  }, []);
+  }, [topContentItems]);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
@@ -250,7 +508,7 @@ export default function InsightsDetailScreen() {
       >
         <View style={styles.stickyHeader}>
           <View style={styles.topBar}>
-          <TouchableOpacity
+            <TouchableOpacity
               activeOpacity={0.7}
               style={styles.iconBtn}
               onPress={() => dispatch({ type: "SET_SCREEN", value: "professionalDashboard" })}
@@ -258,15 +516,40 @@ export default function InsightsDetailScreen() {
               <BackArrowIcon />
             </TouchableOpacity>
 
-            <Text style={styles.title}>Insights</Text>
+          <View style={styles.titleCluster}>
+            <TouchableOpacity
+              style={styles.titleTouch}
+              activeOpacity={0.7}
+              disabled={!titleEditable}
+                onPress={() => {
+                  if (titleEditable) {
+                    dispatch({ type: "SET_EDITING", value: true });
+                  }
+                }}
+              >
+                <Text style={[styles.title, !titleEditable && styles.titleDisabled]}>Insights</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.topBarActions}>
-              <TouchableOpacity activeOpacity={0.7} style={styles.headerActionBtn}>
-                <Upload size={24} color={C.black} strokeWidth={2.1} />
-              </TouchableOpacity>
-              <TouchableOpacity activeOpacity={0.7} style={styles.headerActionBtn}>
-                <Info size={25} color={C.black} strokeWidth={2.1} />
-              </TouchableOpacity>
+              {state.isEditing ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => dispatch({ type: "SET_EDITING", value: false })}
+                  style={styles.headerDoneBtn}
+                >
+                  <Text style={styles.headerDoneText}>Done</Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity activeOpacity={0.7} style={styles.headerActionBtn}>
+                    <Upload size={22} color={C.black} strokeWidth={2.1} />
+                  </TouchableOpacity>
+                  <TouchableOpacity activeOpacity={0.7} style={styles.headerActionBtn}>
+                    <Info size={23} color={C.black} strokeWidth={2.1} />
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
 
@@ -298,18 +581,20 @@ export default function InsightsDetailScreen() {
           </View>
         </View>
 
-        {activeTab === "Overview" ? (
-          <>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>All content</Text>
+      <View style={styles.pageHeaderRow}>
+          <View style={styles.pageHeaderLeft}>
+            <Text style={styles.pageHeaderTitle}>{sharedHeaderTitle}</Text>
+            {showContentChevron ? <ChevronDown size={16} color={C.black} strokeWidth={2} /> : null}
+          </View>
+
           <View style={styles.periodPickerWrap}>
             <TouchableOpacity
               activeOpacity={0.7}
-              style={styles.dateBtn}
+              style={styles.pageHeaderPeriodBtn}
               onPress={() => setPeriodMenuOpen((value) => !value)}
             >
-              <Text style={styles.dateText}>{selectedPeriod}</Text>
-              <ChevronDown size={18} color="#6F6F6F" strokeWidth={2} />
+              <Text style={styles.pageHeaderPeriodText}>{selectedPeriod}</Text>
+              <ChevronDown size={16} color="#6F6F6F" strokeWidth={2} />
             </TouchableOpacity>
 
             {periodMenuOpen ? (
@@ -345,16 +630,37 @@ export default function InsightsDetailScreen() {
           </View>
         </View>
 
+        {activeTab === "Overview" ? (
+          <>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.cardsScroller}
           contentContainerStyle={styles.cardsRow}
         >
-          {METRIC_CARDS.map((card) => (
+          {overviewCards.map((card) => (
             <View key={card.label} style={[styles.metricCard, card.active && styles.metricCardActive]}>
               <Text style={styles.metricLabel}>{card.label}</Text>
-              <Text style={styles.metricValue}>{card.value}</Text>
+              {state.isEditing && card.field ? (
+                <EditableNumber
+                  value={card.value}
+                  onSave={(val) => {
+                    const num = parseInt(String(val).replace(/[^0-9]/g, ""), 10) || 0;
+                    dispatch({ type: "UPDATE_FIELD", field: card.field, value: num });
+                  }}
+                  style={styles.metricValue}
+                  formatDisplay={(n) => {
+                    if (card.field === "netFollowers") {
+                      return `+${formatCompactCountWhole(n)}`;
+                    }
+                    return formatCompactCountWhole(n);
+                  }}
+                />
+              ) : (
+                <Text style={styles.metricValue}>
+                  {card.display}
+                </Text>
+              )}
             </View>
           ))}
         </ScrollView>
@@ -375,13 +681,13 @@ export default function InsightsDetailScreen() {
               <ClipPath id="chartLineClip">
                 <Rect
                   x={chart.padLeft}
-                  y={chart.toY(262)}
+                  y={Math.max(chart.padTop - 3, chart.toY(chartMax) - 3)}
                   width={chart.chartW}
-                  height={CHART_HEIGHT - chart.toY(262)}
+                  height={CHART_HEIGHT - Math.max(chart.padTop - 3, chart.toY(chartMax) - 3)}
                 />
               </ClipPath>
             </Defs>
-            {[262, 131, 0].map((value) => (
+            {[chartMax, chartMax / 2, 0].map((value) => (
             <Line
                 key={value}
                 x1={chart.padLeft}
@@ -403,25 +709,25 @@ export default function InsightsDetailScreen() {
             />
             <SvgText
               x={12}
-              y={chart.toY(262) + 3}
+              y={chart.toY(chartMax) + 2}
               fontSize={10}
               fontFamily="Inter_400Regular"
               fill="#8E8E8E"
             >
-              262K
+              {formatCompactCount(chartMax)}
             </SvgText>
             <SvgText
               x={12}
-              y={chart.toY(131) + 3}
+              y={chart.toY(chartMax / 2) + 2}
               fontSize={10}
               fontFamily="Inter_400Regular"
               fill="#8E8E8E"
             >
-              131K
+              {formatCompactCount(chartMax / 2)}
             </SvgText>
             <SvgText
               x={14}
-              y={chart.toY(0) + 3}
+              y={chart.toY(0) + 2}
               fontSize={10}
               fontFamily="Inter_400Regular"
               fill="#8E8E8E"
@@ -494,6 +800,16 @@ export default function InsightsDetailScreen() {
           </View>
         </View>
 
+        {state.isEditing && activeTab === "Overview" ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.editGraphBtn}
+            onPress={() => setGraphEditorVisible(true)}
+          >
+            <Text style={styles.editGraphText}>Edit graph</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <View style={styles.sectionSpacer} />
 
         <View style={[styles.secondarySection, styles.profileActivitySection]}>
@@ -506,7 +822,19 @@ export default function InsightsDetailScreen() {
 
           <View style={styles.accountsRow}>
             <Text style={styles.accountsLabel}>Accounts reached</Text>
-            <Text style={styles.accountsValue}>359,365</Text>
+            {state.isEditing ? (
+              <EditableNumber
+                value={state.accountsReached}
+                onSave={(val) => {
+                  const num = parseInt(String(val).replace(/[^0-9]/g, ""), 10) || 0;
+                  dispatch({ type: "UPDATE_FIELD", field: "accountsReached", value: num });
+                }}
+                style={styles.accountsValue}
+                formatDisplay={(n) => formatCompactCountWhole(n)}
+              />
+            ) : (
+              <Text style={styles.accountsValue}>{formatCount(state.accountsReached || 359365)}</Text>
+            )}
           </View>
 
           <View style={styles.accountsDivider} />
@@ -522,21 +850,39 @@ export default function InsightsDetailScreen() {
             </View>
           </View>
 
-        {CONTENT_TYPES.map((item) => (
-          <View key={item.label} style={styles.barGroup}>
-            <Text style={styles.barLabel}>{item.label}</Text>
-            <View style={styles.barRow}>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${item.percent}%` }]}>
-                  <View style={[styles.barFillFollowers, { width: item.percent > 0 ? "6%" : "0%" }]} />
-                  <View style={styles.barSeparator} />
-                  <View style={[styles.barFillNonFollowers, { width: item.percent > 0 ? "93%" : "0%" }]} />
-                </View>
-              </View>
-              <Text style={styles.barValue}>{item.value}</Text>
-            </View>
-          </View>
-        ))}
+          {contentTypeItems.map((item, index) => (
+            <OverviewBarRow
+              key={item.label}
+              item={item}
+              maxValue={Math.max(...contentTypeItems.map((row) => row.value), 1)}
+              editable={state.isEditing}
+              onUpdateLabel={
+                state.isEditing
+                  ? (newLabel) =>
+                      dispatch({
+                        type: "UPDATE_CONTENT_TYPE",
+                        index,
+                        updates: { label: newLabel },
+                      })
+                  : undefined
+              }
+              onUpdateValue={
+                state.isEditing
+                  ? (newVal) =>
+                      dispatch({
+                        type: "UPDATE_CONTENT_TYPE",
+                        index,
+                        updates: { value: Math.max(0, parseInt(String(newVal).replace(/[^0-9]/g, ""), 10) || 0) },
+                      })
+                  : undefined
+              }
+              onDelete={
+                state.isEditing && contentTypeItems.length > 1
+                  ? () => dispatch({ type: "DELETE_CONTENT_TYPE", index })
+                  : undefined
+              }
+            />
+          ))}
 
           <View style={styles.topContentHeader}>
             <Text style={styles.topContentTitle}>Top content by views</Text>
@@ -551,12 +897,31 @@ export default function InsightsDetailScreen() {
             style={styles.topContentScroller}
             contentContainerStyle={styles.topContentRow}
           >
-            {TOP_CONTENT_ITEMS.map((item) => (
+            {topContentItems.map((item) => (
               <TouchableOpacity
                 key={item.id}
                 activeOpacity={0.8}
                 style={styles.topContentCard}
-                onPress={() => dispatch({ type: "SET_SCREEN", value: "insights" })}
+                onPress={() => {
+                  const selected = item.source || null;
+                  if (selected) {
+                    dispatch({ type: "SET_SELECTED_POST_DATA", data: buildSelectedPostPayload(selected, profile) });
+                    dispatch({ type: "SET_SELECTED_POST_URI", uri: selected.thumbnailUri || selected.videoUrl || item.uri });
+                    dispatch({ type: "SET_THUMBNAIL", uri: selected.thumbnailUri || selected.videoUrl || item.uri });
+                    dispatch({ type: "UPDATE_FIELD", field: "thumbnailUri", value: selected.thumbnailUri || selected.videoUrl || item.uri });
+                    dispatch({ type: "UPDATE_FIELD", field: "views", value: Number(selected.viewCount) || 0 });
+                    dispatch({ type: "UPDATE_FIELD", field: "likes", value: Number(selected.likesCount) || 0 });
+                    dispatch({ type: "UPDATE_FIELD", field: "comments", value: Number(selected.commentsCount) || 0 });
+                    if (selected.videoDuration) {
+                      dispatch({
+                        type: "UPDATE_FIELD",
+                        field: "videoDuration",
+                        value: Math.round(Number(selected.videoDuration)) || 0,
+                      });
+                    }
+                  }
+                  dispatch({ type: "SET_SCREEN", value: "insights" });
+                }}
               >
                 <Image
                   source={{ uri: item.uri }}
@@ -642,17 +1007,32 @@ export default function InsightsDetailScreen() {
             <Info size={16} color={C.black} strokeWidth={2.1} />
           </View>
 
-          {PROFILE_ACTIVITY.map((item) => (
-            <View key={item.label} style={styles.profileRow}>
-              <View style={styles.profileIconCircle}>
-                {(() => {
-                  const Icon = item.icon;
-                  return <Icon size={18} color={C.black} strokeWidth={2} />;
-                })()}
-              </View>
-              <Text style={styles.profileRowLabel}>{item.label}</Text>
-              <Text style={styles.profileRowValue}>{item.value}</Text>
-            </View>
+          {profileActivityRows.map((item, index) => (
+            <ProfileActivityRow
+              key={item.label}
+              item={item}
+              editable={state.isEditing}
+              onUpdateLabel={
+                state.isEditing
+                  ? (newLabel) =>
+                      dispatch({
+                        type: "UPDATE_PROFILE_ACTIVITY",
+                        index,
+                        updates: { label: newLabel },
+                      })
+                  : undefined
+              }
+              onUpdateValue={
+                state.isEditing
+                  ? (newVal) =>
+                      dispatch({
+                        type: "UPDATE_PROFILE_ACTIVITY",
+                        index,
+                        updates: { value: Math.max(0, parseInt(String(newVal).replace(/[^0-9]/g, ""), 10) || 0) },
+                      })
+                  : undefined
+              }
+            />
           ))}
         </View>
           </>
@@ -662,6 +1042,11 @@ export default function InsightsDetailScreen() {
           <InsightsAudienceTab key="audience" />
         )}
       </ScrollView>
+
+      <GraphEditorSheet
+        visible={graphEditorVisible}
+        onClose={() => setGraphEditorVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -673,15 +1058,15 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: SIDE_PAD,
-    paddingTop: 14,
+    paddingTop: 4,
     paddingBottom: 28,
     backgroundColor: C.white,
   },
   stickyHeader: {
     backgroundColor: C.white,
     position: "relative",
-    zIndex: 1000,
-    elevation: 1000,
+    zIndex: 5000,
+    elevation: 5000,
     marginHorizontal: -SIDE_PAD,
     shadowColor: "transparent",
     shadowOpacity: 0,
@@ -692,9 +1077,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 52,
-    marginBottom: 2,
+    minHeight: 46,
+    marginBottom: 0,
     paddingHorizontal: SIDE_PAD,
+    paddingTop: 6,
+    paddingBottom: 0,
   },
   iconBtn: {
     width: 40,
@@ -703,11 +1090,35 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   topBarActions: {
-    minWidth: 76,
+    minWidth: 88,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 8,
+    paddingTop: 7,
+  },
+  titleCluster: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginLeft: 10,
+    paddingTop: 7,
+  },
+  headerDoneBtn: {
+    minHeight: 28,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#DD2A7B",
+    backgroundColor: "#FFF8FD",
+  },
+  headerDoneText: {
+    fontSize: 14,
+    color: "#DD2A7B",
+    fontFamily: "Inter_700Bold",
   },
   headerActionBtn: {
     width: 34,
@@ -722,14 +1133,57 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: C.black,
     fontFamily: "Inter_600SemiBold",
-    marginLeft: 14,
+    lineHeight: 20,
+  },
+  titleTouch: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    paddingTop: 3,
+    marginTop: 0,
+  },
+  titleDisabled: {
+    opacity: 0.86,
   },
   tabsSection: {
     marginTop: 2,
     marginBottom: 0,
     backgroundColor: C.white,
-    zIndex: 50,
-    elevation: 0,
+    zIndex: 4000,
+    elevation: 4000,
+  },
+  pageHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 18,
+    marginBottom: 14,
+    minHeight: 32,
+    zIndex: 1,
+    elevation: 1,
+  },
+  pageHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 1,
+  },
+  pageHeaderTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
+    color: C.black,
+  },
+  pageHeaderPeriodBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  pageHeaderPeriodText: {
+    fontSize: 16,
+    color: "#6F6F6F",
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
   },
   tabRow: {
     flexDirection: "row",
@@ -747,7 +1201,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ECECEC",
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 11,
     color: "#777777",
     fontFamily: "Inter_500Medium",
     fontWeight: "500",
@@ -756,7 +1210,7 @@ const styles = StyleSheet.create({
     color: C.black,
   },
   tabUnderline: {
-    width: 88,
+    width: 86,
     height: 2.6,
     backgroundColor: "transparent",
     marginTop: 9,
@@ -764,31 +1218,11 @@ const styles = StyleSheet.create({
   tabUnderlineActive: {
     backgroundColor: "#111111",
   },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 52,
-    marginBottom: 14,
-    zIndex: 20,
-    elevation: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_500Medium",
-    fontWeight: "500",
-    color: C.black,
-  },
-  dateBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
   periodPickerWrap: {
     position: "relative",
     alignItems: "flex-end",
-    zIndex: 30,
-    elevation: 30,
+    zIndex: 1,
+    elevation: 1,
   },
   dateText: {
     fontSize: 16,
@@ -887,11 +1321,28 @@ const styles = StyleSheet.create({
     color: C.black,
   },
   chartBlock: {
-    marginTop: 30,
+    marginTop: 26,
     paddingBottom: 10,
+  },
+  editGraphBtn: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#DD2A7B",
+    backgroundColor: "#FFF8FD",
+  },
+  editGraphText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "#DD2A7B",
   },
   chartSurface: {
     position: "relative",
+    overflow: "visible",
   },
   chartTooltip: {
     position: "absolute",
@@ -1064,27 +1515,47 @@ const styles = StyleSheet.create({
   barGroup: {
     marginTop: 8,
   },
+  barLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
   barRow: {
     flexDirection: "row",
     alignItems: "center",
   },
   barLabel: {
-    marginBottom: 2,
     fontSize: 13,
     color: C.black,
     fontFamily: "Inter_400Regular",
+    flexShrink: 1,
+  },
+  editDeleteBtn: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F3F4F6",
+  },
+  editDeleteText: {
+    fontSize: 14,
+    color: "#FF3B30",
+    fontFamily: "Inter_700Bold",
+    lineHeight: 16,
   },
   barTrack: {
     flex: 1,
     height: 8,
-    borderRadius: 2,
+    borderRadius: 3,
     backgroundColor: "#F4F5F8",
     overflow: "hidden",
     marginRight: 10,
   },
   barFill: {
     height: "100%",
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: "hidden",
     flexDirection: "row",
   },

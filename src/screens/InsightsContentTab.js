@@ -1,23 +1,44 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Animated, Image } from "react-native";
-import { ChevronDown, CornerUpLeft, Heart, MessageCircle, Repeat2, Send } from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Animated, Image, ImageBackground } from "react-native";
+import { ChevronDown } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { C } from "../constants/colors";
+import { useProfileData } from "../context/ProfileDataContext";
+import { useReelData } from "../context/ReelDataContext";
+import { formatCompactCountWhole, formatCount } from "../constants/profileData";
 
 const FILTERS = ["Latest", "Views", "Accounts reached", "Follows", "Likes", "Comments", "Reposts", "Shares", "Saves"];
 
 const REELS_ICON_ASSET = require("../../assets/icons/reels-icon.png");
 const STORY_ICON_ASSET = require("../../assets/icons/story-icon.png");
+const LIKE_ICON_ASSET = require("../../assets/icons/like.png");
+const COMMENT_ICON_ASSET = require("../../assets/icons/comment.png");
+const REPOST_ICON_ASSET = require("../../assets/icons/repost.png");
+const SHARE_ICON_ASSET = require("../../assets/icons/share.png");
 
-const CONTENT_ITEMS = [
+function ThickenedIcon({ source, size = 12, bolder = false }) {
+  const offset = bolder ? 0.4 : 0.32;
+  const layerSize = size + 1;
+  return (
+    <View style={[styles.iconBox, { width: layerSize, height: layerSize }]}>
+      <Image source={source} style={[styles.iconLayer, { transform: [{ translateY: -offset }] }]} resizeMode="contain" />
+      <Image source={source} style={[styles.iconLayer, { transform: [{ translateX: offset }] }]} resizeMode="contain" />
+      <Image source={source} style={[styles.iconLayer, { transform: [{ translateY: offset }] }]} resizeMode="contain" />
+      <Image source={source} style={[styles.iconLayer, { transform: [{ translateX: -offset }] }]} resizeMode="contain" />
+      <Image source={source} style={styles.iconLayer} resizeMode="contain" />
+    </View>
+  );
+}
+
+const MOCK_CONTENT_ITEMS = [
   {
     badge: "story",
     time: "21h",
     views: "400",
     stats: [
-      { icon: Heart, value: "40" },
-      { icon: MessageCircle, value: "0" },
-      { icon: Repeat2, value: "0" },
+      { icon: LIKE_ICON_ASSET, value: "40" },
+      { icon: SHARE_ICON_ASSET, value: "0" },
+      { icon: REPOST_ICON_ASSET, value: "0" },
     ],
     colors: ["#262626", "#6E7E8C", "#BCC7D3"],
     accent: "clock",
@@ -27,9 +48,9 @@ const CONTENT_ITEMS = [
     time: "22h",
     views: "491",
     stats: [
-      { icon: Heart, value: "48" },
-      { icon: MessageCircle, value: "0" },
-      { icon: Repeat2, value: "1" },
+      { icon: LIKE_ICON_ASSET, value: "48" },
+      { icon: SHARE_ICON_ASSET, value: "0" },
+      { icon: REPOST_ICON_ASSET, value: "1" },
     ],
     colors: ["#6F91B7", "#2B394E", "#D7C2A2"],
     accent: "clock",
@@ -39,9 +60,9 @@ const CONTENT_ITEMS = [
     time: "1d",
     views: "604",
     stats: [
-      { icon: Heart, value: "59" },
-      { icon: MessageCircle, value: "0" },
-      { icon: Repeat2, value: "0" },
+      { icon: LIKE_ICON_ASSET, value: "59" },
+      { icon: SHARE_ICON_ASSET, value: "0" },
+      { icon: REPOST_ICON_ASSET, value: "0" },
     ],
     colors: ["#4A5366", "#D39A2C", "#C66A22"],
     accent: "clock",
@@ -50,12 +71,12 @@ const CONTENT_ITEMS = [
     badge: "reels",
     time: "1d",
     title: "I Guess it could\u{1F642}...",
-    views: "5.1K",
+    views: "5.1k",
     stats: [
-      { icon: Heart, value: "222" },
-      { icon: MessageCircle, value: "2" },
-      { icon: Repeat2, value: "5" },
-      { icon: Send, value: "11" },
+      { icon: LIKE_ICON_ASSET, value: "222" },
+      { icon: COMMENT_ICON_ASSET, value: "2" },
+      { icon: REPOST_ICON_ASSET, value: "5" },
+      { icon: SHARE_ICON_ASSET, value: "11" },
     ],
     colors: ["#C88A21", "#8D4A1E", "#191919"],
     accent: "play",
@@ -65,9 +86,9 @@ const CONTENT_ITEMS = [
     time: "2d",
     views: "554",
     stats: [
-      { icon: Heart, value: "45" },
-      { icon: MessageCircle, value: "0" },
-      { icon: Repeat2, value: "1" },
+      { icon: LIKE_ICON_ASSET, value: "45" },
+      { icon: SHARE_ICON_ASSET, value: "0" },
+      { icon: REPOST_ICON_ASSET, value: "1" },
     ],
     colors: ["#0F2C55", "#A7C1E6", "#233A63"],
     accent: "clock",
@@ -77,9 +98,9 @@ const CONTENT_ITEMS = [
     time: "4d",
     views: "621",
     stats: [
-      { icon: Heart, value: "68" },
-      { icon: MessageCircle, value: "1" },
-      { icon: Repeat2, value: "5" },
+      { icon: LIKE_ICON_ASSET, value: "68" },
+      { icon: SHARE_ICON_ASSET, value: "1" },
+      { icon: REPOST_ICON_ASSET, value: "5" },
     ],
     colors: ["#3B8CBE", "#DCE5EE", "#1A4A78"],
     accent: "clock",
@@ -89,9 +110,9 @@ const CONTENT_ITEMS = [
     time: "6d",
     views: "566",
     stats: [
-      { icon: Heart, value: "63" },
-      { icon: MessageCircle, value: "0" },
-      { icon: Repeat2, value: "2" },
+      { icon: LIKE_ICON_ASSET, value: "63" },
+      { icon: SHARE_ICON_ASSET, value: "0" },
+      { icon: REPOST_ICON_ASSET, value: "2" },
     ],
     colors: ["#D66A54", "#F5B87E", "#C53E2C"],
     accent: "clock",
@@ -101,14 +122,103 @@ const CONTENT_ITEMS = [
     time: "1w",
     views: "544",
     stats: [
-      { icon: Heart, value: "39" },
-      { icon: MessageCircle, value: "1" },
-      { icon: Repeat2, value: "2" },
+      { icon: LIKE_ICON_ASSET, value: "39" },
+      { icon: SHARE_ICON_ASSET, value: "1" },
+      { icon: REPOST_ICON_ASSET, value: "2" },
     ],
     colors: ["#D6A04B", "#F2E6C9", "#5F3B19"],
     accent: "clock",
   },
 ];
+
+function formatRelativeTime(timestamp) {
+  if (!timestamp) {
+    return "1d";
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return "1d";
+  }
+
+  const diffHours = Math.max(1, Math.round((Date.now() - date.getTime()) / 36e5));
+  if (diffHours < 24) {
+    return `${diffHours}h`;
+  }
+  return `${Math.max(1, Math.round(diffHours / 24))}d`;
+}
+
+function truncateCaption(text = "", maxLength = 28) {
+  const cleaned = String(text).trim();
+  if (!cleaned) {
+    return "";
+  }
+  if (cleaned.length <= maxLength) {
+    return cleaned;
+  }
+  return `${cleaned.slice(0, maxLength - 1)}...`;
+}
+
+function mergeSelectedPost(item, selectedPostData) {
+  if (!selectedPostData) {
+    return item;
+  }
+
+  const selectedId = selectedPostData.id || selectedPostData.shortCode || selectedPostData.thumbnailUri;
+  const matches =
+    item.id === selectedId ||
+    item.id === selectedPostData.shortCode ||
+    item.thumbnailUri === selectedPostData.thumbnailUri;
+
+  if (!matches) {
+    return item;
+  }
+
+  return {
+    ...item,
+    ...selectedPostData,
+    thumbnailUri: selectedPostData.thumbnailUri || item.thumbnailUri,
+    views: formatCompactCountWhole(selectedPostData.views ?? selectedPostData.viewCount ?? item.views),
+    time: formatRelativeTime(selectedPostData.timestamp || item.timestamp),
+    title: truncateCaption(selectedPostData.caption || selectedPostData.description || item.title || ""),
+    stats: item.stats.map((stat, index) => {
+      if (index === 0) {
+        return { ...stat, value: formatCount(selectedPostData.likes ?? selectedPostData.likesCount ?? stat.value) };
+      }
+      if (index === 1) {
+        return { ...stat, value: formatCount(selectedPostData.comments ?? selectedPostData.commentsCount ?? stat.value) };
+      }
+      if (index === 2) {
+        return { ...stat, value: formatCount(selectedPostData.reposts ?? selectedPostData.repostsCount ?? stat.value) };
+      }
+      if (index === 3) {
+        return { ...stat, value: formatCount(selectedPostData.shares ?? selectedPostData.sharesCount ?? stat.value) };
+      }
+      return stat;
+    }),
+  };
+}
+
+function buildContentItems(reels = [], selectedPostData = null) {
+  return reels
+    .map((item, index) => ({
+      id: item.id || String(index),
+      badge: item.videoUrl ? "reels" : "story",
+      time: formatRelativeTime(item.timestamp),
+      title: truncateCaption(item.caption || item.description || ""),
+      views: formatCompactCountWhole(item.viewCount || 0),
+      stats: [
+        { icon: LIKE_ICON_ASSET, value: formatCount(item.likesCount || 0) },
+        { icon: COMMENT_ICON_ASSET, value: formatCount(item.commentsCount || 0) },
+        { icon: REPOST_ICON_ASSET, value: "0" },
+        { icon: SHARE_ICON_ASSET, value: "0" },
+      ],
+      thumbnailUri: item.thumbnailUri || item.videoUrl || "",
+      colors: ["#262626", "#6E7E8C", "#BCC7D3"],
+    }))
+    .map((item) => mergeSelectedPost(item, selectedPostData))
+    .filter((item) => item.thumbnailUri);
+}
 
 function SkeletonLine({ width, height, style }) {
   const pulse = useState(() => new Animated.Value(0))[0];
@@ -140,8 +250,21 @@ function SkeletonLine({ width, height, style }) {
   return <Animated.View style={[{ width, height, opacity }, styles.skeleton, style]} />;
 }
 
-function ContentThumbnail({ colors, badge }) {
+function ContentThumbnail({ colors, badge, thumbnailUri }) {
   const assetSource = badge === "story" ? STORY_ICON_ASSET : REELS_ICON_ASSET;
+
+  if (thumbnailUri) {
+    return (
+      <View style={styles.thumbShell}>
+        <ImageBackground source={{ uri: thumbnailUri }} style={styles.thumbBg} imageStyle={styles.thumbImage}>
+          <View style={styles.thumbOverlay} />
+          <View style={styles.badgeWrap} pointerEvents="none">
+            <Image source={assetSource} style={styles.badgeIcon} resizeMode="contain" />
+          </View>
+        </ImageBackground>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.thumbShell}>
@@ -156,14 +279,9 @@ function ContentThumbnail({ colors, badge }) {
 }
 
 function ContentRow({ item }) {
-  const statIcons =
-    item.badge === "story"
-      ? [Heart, Send, CornerUpLeft]
-      : [Heart, MessageCircle, Repeat2, Send];
-
   return (
     <View style={styles.row}>
-      <ContentThumbnail colors={item.colors} badge={item.badge} />
+      <ContentThumbnail colors={item.colors} badge={item.badge} thumbnailUri={item.thumbnailUri} />
 
       <View style={styles.middle}>
         <View style={[styles.topLine, item.title && styles.topLineWithTitle]}>
@@ -177,10 +295,9 @@ function ContentRow({ item }) {
 
         <View style={styles.statsRow}>
           {item.stats.map((stat, index) => {
-            const Icon = statIcons[index] || statIcons[statIcons.length - 1];
             return (
               <View key={`${stat.value}-${index}`} style={styles.statItem}>
-                <Icon size={12} color="#A0A0A0" strokeWidth={2} />
+                <ThickenedIcon source={stat.icon} size={12} bolder={index === 0} />
                 <Text style={styles.statText}>{stat.value}</Text>
               </View>
             );
@@ -198,6 +315,13 @@ function ContentRow({ item }) {
 
 export default function InsightsContentTab() {
   const [loading, setLoading] = useState(true);
+  const { state: profileState } = useProfileData();
+  const { state: reelState } = useReelData();
+  const contentItems = useMemo(() => {
+    const reels = Array.isArray(profileState.profile?.reels) ? profileState.profile.reels : [];
+    const mapped = buildContentItems(reels, reelState.selectedPostData);
+    return mapped.length ? mapped : MOCK_CONTENT_ITEMS;
+  }, [profileState.profile?.reels, reelState.selectedPostData]);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 900);
@@ -206,18 +330,6 @@ export default function InsightsContentTab() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <View style={styles.allContentBtn}>
-          <Text style={styles.allContentText}>All content</Text>
-          <ChevronDown size={18} color={C.black} strokeWidth={2} />
-        </View>
-
-        <View style={styles.dateBtn}>
-          <Text style={styles.dateText}>30 days</Text>
-          <ChevronDown size={18} color="#707070" strokeWidth={2} />
-        </View>
-      </View>
-
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
         {FILTERS.map((filter, index) => {
           const active = index === 0;
@@ -248,8 +360,8 @@ export default function InsightsContentTab() {
         </View>
       ) : (
         <View style={styles.list}>
-          {CONTENT_ITEMS.map((item) => (
-            <ContentRow key={`${item.time}-${item.views}-${item.title || "no-title"}`} item={item} />
+          {contentItems.map((item) => (
+            <ContentRow key={`${item.id}-${item.time}-${item.views}-${item.title || "no-title"}`} item={item} />
           ))}
         </View>
       )}
@@ -259,34 +371,7 @@ export default function InsightsContentTab() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 4,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 10,
-    marginBottom: 18,
-  },
-  allContentBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  allContentText: {
-    fontSize: 17,
-    color: C.black,
-    fontFamily: "Inter_500Medium",
-  },
-  dateBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  dateText: {
-    fontSize: 17,
-    color: "#707070",
-    fontFamily: "Inter_400Regular",
+    paddingTop: 0,
   },
   filterRow: {
     gap: 10,
@@ -316,16 +401,16 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   list: {
-    paddingTop: 2,
+    paddingTop: 0,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   thumbShell: {
-    width: 42,
-    height: 56,
+    width: 40,
+    height: 54,
     borderRadius: 7,
     overflow: "hidden",
     marginRight: 12,
@@ -333,7 +418,10 @@ const styles = StyleSheet.create({
   thumbBg: {
     flex: 1,
     justifyContent: "space-between",
-    padding: 4,
+    padding: 3,
+  },
+  thumbImage: {
+    borderRadius: 7,
   },
   thumbOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -347,33 +435,33 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   badgeIcon: {
-    width: 14,
-    height: 14,
+    width: 13,
+    height: 13,
   },
   middle: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 34,
     justifyContent: "center",
   },
   topLine: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 3,
-    gap: 10,
+    marginBottom: 2,
+    gap: 8,
   },
   topLineWithTitle: {
     justifyContent: "flex-start",
-    gap: 6,
+    gap: 5,
   },
   title: {
     flexShrink: 1,
-    fontSize: 14,
-    color: C.black,
+    fontSize: 13,
+    color: "#202020",
     fontFamily: "Inter_400Regular",
   },
   time: {
-    fontSize: 14,
+    fontSize: 11,
     color: "#777777",
     fontFamily: "Inter_400Regular",
   },
@@ -383,32 +471,42 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   statItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 4,
+  },
+  iconBox: {
+    position: "relative",
+    marginRight: 1,
+  },
+  iconLayer: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+    tintColor: "#111111",
   },
   statText: {
     fontSize: 12,
-    color: "#878787",
+    color: "#626262",
     fontFamily: "Inter_400Regular",
   },
   viewsCol: {
-    width: 54,
+    width: 50,
     alignItems: "flex-end",
     justifyContent: "center",
-    marginLeft: 8,
+    marginLeft: 6,
   },
   viewsValue: {
-    fontSize: 17,
+    fontSize: 14,
     color: C.black,
     fontFamily: "Inter_600SemiBold",
-    lineHeight: 20,
+    lineHeight: 18,
   },
   viewsLabel: {
-    fontSize: 13,
+    fontSize: 10,
     color: "#888888",
     fontFamily: "Inter_400Regular",
     marginTop: 2,
