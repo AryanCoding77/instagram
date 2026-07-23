@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useReducer, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { buildHistoricalInsightsBaseline } from "../utils/insightsBaseline";
+import { publishSelectedPostSync } from "../utils/reelSyncBus";
 
 const STORAGE_KEY = "@reelInsights:data";
 
 export const DEFAULT_DATA = {
   currentScreen: "home",
+  screenHistory: [],
   selectedPostUri: null,
   selectedPostIndex: 0,
   selectedPostData: null,
@@ -16,6 +19,8 @@ export const DEFAULT_DATA = {
   shares: 921,
   saves: 53,
   views: 11891,
+  followersCount: 6960,
+  followersGrowthChange: "+5.9%",
   netFollowers: 386,
   interactions: 50109,
   accountsReached: 9601,
@@ -105,9 +110,400 @@ export const DEFAULT_DATA = {
   ],
   genderMen: 96.6,
   genderWomen: 14.4,
+  selectedReelsInsights: [],
 };
 
 const ReelDataContext = createContext(null);
+
+function calculateDerivedRates(baseState) {
+  const accountsReached = Number(baseState.accountsReached) || 0;
+  const views = Number(baseState.views) || 0;
+  const likes = Number(baseState.likes) || 0;
+  const comments = Number(baseState.comments) || 0;
+  const reposts = Number(baseState.reposts) || 0;
+  const shares = Number(baseState.shares) || 0;
+  const saves = Number(baseState.saves) || 0;
+
+  const calculateRate = (count) => {
+    if (accountsReached > 0) {
+      return parseFloat(((count / accountsReached) * 100).toFixed(1));
+    }
+    return 0;
+  };
+
+  const calculateSkipRate = () => {
+    if (accountsReached > 0 && views > 0) {
+      const skipped = accountsReached - views;
+      if (skipped > 0) {
+        return parseFloat(((skipped / accountsReached) * 100).toFixed(1));
+      }
+    }
+    return 0;
+  };
+
+  const currentRates = Array.isArray(baseState.rates) && baseState.rates.length ? baseState.rates : DEFAULT_DATA.rates;
+  return currentRates.map((rate) => {
+    switch (rate.key) {
+      case "skip":
+        return { ...rate, value: calculateSkipRate() };
+      case "like":
+        return { ...rate, value: calculateRate(likes) };
+      case "comment":
+        return { ...rate, value: calculateRate(comments) };
+      case "repost":
+        return { ...rate, value: calculateRate(reposts) };
+      case "share":
+        return { ...rate, value: calculateRate(shares) };
+      case "save":
+        return { ...rate, value: calculateRate(saves) };
+      default:
+        return rate;
+    }
+  });
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeLabelValueRows(rows, labelKey, valueKey) {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  return rows
+    .map((item) => ({
+      label: String(item?.[labelKey] ?? item?.label ?? item?.name ?? "").trim(),
+      value: toFiniteNumber(item?.[valueKey] ?? item?.value ?? item?.percent ?? item?.percentage, 0),
+    }))
+    .filter((item) => item.label);
+}
+
+function normalizeSelectedReelInsight(item, index, fallbackAgeGroups) {
+  const summary = item?.summary || {};
+  const metricsRow = item?.metrics_row || item?.metricsRow || {};
+  const audience = item?.audience || {};
+  const graphs = item?.graphs || {};
+
+  const ageGroups = Array.isArray(audience.ageGroups)
+    ? normalizeLabelValueRows(audience.ageGroups, "label", "percentage")
+    : Array.isArray(audience.age_groups)
+      ? normalizeLabelValueRows(audience.age_groups, "label", "percentage")
+      : fallbackAgeGroups;
+
+  return {
+    reelId: String(item?.reel_id ?? item?.reelId ?? item?.id ?? index),
+    isTopPerformer: Boolean(item?.is_top_performer ?? item?.isTopPerformer),
+    summary: {
+      views: toFiniteNumber(summary.views ?? summary.viewCount ?? summary.thisReel, 0),
+      accountsReached: toFiniteNumber(summary.accountsReached ?? summary.accounts_reached ?? summary.reach, 0),
+      follows: toFiniteNumber(summary.follows ?? summary.follows_gained ?? summary.followsGained, 0),
+    },
+    metricsRow: {
+      likes: toFiniteNumber(metricsRow.likes ?? metricsRow.likeCount, 0),
+      comments: toFiniteNumber(metricsRow.comments ?? metricsRow.commentCount, 0),
+      shares: toFiniteNumber(metricsRow.shares ?? metricsRow.shareCount, 0),
+      saves: toFiniteNumber(metricsRow.saves ?? metricsRow.saveCount, 0),
+    },
+    audience: {
+      genderMen: toFiniteNumber(
+        audience.genderMen ?? audience.gender_percent?.male ?? audience.gender_percent?.men,
+        0
+      ),
+      genderWomen: toFiniteNumber(
+        audience.genderWomen ?? audience.gender_percent?.female ?? audience.gender_percent?.women,
+        0
+      ),
+      ageGroups,
+    },
+    graphs: {
+      viewsOverTime: Array.isArray(graphs.views_over_time) ? graphs.views_over_time : [],
+      retentionCurvePercent: Array.isArray(graphs.retention_curve_percent) ? graphs.retention_curve_percent : [],
+      engagementCurvePercent: Array.isArray(graphs.engagement_curve_percent) ? graphs.engagement_curve_percent : [],
+    },
+  };
+}
+
+function sumSelectedReels(selectedReels, fieldPath) {
+  return selectedReels.reduce((sum, item) => {
+    if (fieldPath === "summary.views") {
+      return sum + toFiniteNumber(item?.summary?.views, 0);
+    }
+    if (fieldPath === "summary.accountsReached") {
+      return sum + toFiniteNumber(item?.summary?.accountsReached, 0);
+    }
+    if (fieldPath === "summary.follows") {
+      return sum + toFiniteNumber(item?.summary?.follows, 0);
+    }
+    return sum + toFiniteNumber(item?.metricsRow?.[fieldPath] ?? item?.metrics_row?.[fieldPath], 0);
+  }, 0);
+}
+
+function normalizeGraphSeries(series, fallback, mapper) {
+  const source = Array.isArray(series) && series.length ? series : fallback;
+  if (!Array.isArray(source) || !source.length) {
+    return fallback;
+  }
+  return source.map(mapper);
+}
+
+function applyGeminiPayloadToState(state, payload) {
+  const dashboardState = payload?.dashboard_30d || null;
+  const dashboardSummary = payload?.dashboard_30d_summary || {};
+  const dashboardOverview = dashboardState?.overview || dashboardSummary?.overview || {};
+  const dashboardAudience = dashboardState?.audience || dashboardSummary?.audience_blended_30d || {};
+  const dashboardSources = dashboardSummary?.top_sources_percent || {};
+  const dashboardGraphs = dashboardSummary?.graphs || {};
+  const topLevelMetrics = payload?.metrics || {};
+  const audienceSplit = payload?.audience_split || {};
+  const trafficSources = payload?.traffic_sources_percent || {};
+  const demographics = payload?.demographics || {};
+  const genderPercent = demographics?.gender_percent || {};
+  const ageGroupsPercent = demographics?.age_groups_percent || {};
+  const countriesPercent = payload?.tier_1_countries_percent || {};
+  const chartPoints = Array.isArray(payload?.views_over_time) ? payload.views_over_time : [];
+  const retentionCurve = Array.isArray(payload?.retention_curve_percent) ? payload.retention_curve_percent : [];
+  const engagementCurve = Array.isArray(payload?.engagement_curve_percent) ? payload.engagement_curve_percent : [];
+  const selectedReelsInsights = Array.isArray(payload?.selected_reels)
+    ? payload.selected_reels.slice(0, 3).map((item, index) => ({
+        reelId: String(item?.reel_id ?? item?.reelId ?? item?.id ?? index),
+        isTopPerformer: index === 0,
+        summary: {
+          views: toFiniteNumber(item?.summary?.views, 0),
+          accountsReached: toFiniteNumber(item?.summary?.accountsReached ?? item?.summary?.accounts_reached, 0),
+          follows: toFiniteNumber(item?.summary?.follows, 0),
+        },
+        metricsRow: {
+          likes: toFiniteNumber(item?.metrics?.likes, 0),
+          comments: toFiniteNumber(item?.metrics?.comments, 0),
+          shares: toFiniteNumber(item?.metrics?.shares, 0),
+          saves: toFiniteNumber(item?.metrics?.saves, 0),
+        },
+        audience: {
+          genderMen: toFiniteNumber(item?.audience?.genderMen, state.genderMen),
+          genderWomen: toFiniteNumber(100 - toFiniteNumber(item?.audience?.genderMen, state.genderMen), state.genderWomen),
+          ageGroups: normalizeLabelValueRows(item?.audience?.ageGroups, "label", "percentage"),
+        },
+        graphs: {
+          viewsOverTime: Array.isArray(item?.viewsOverTime)
+            ? item.viewsOverTime.map((value, pointIndex) => ({
+                label: state.viewsOverTime?.[pointIndex]?.label || `Point ${pointIndex + 1}`,
+                thisReel: toFiniteNumber(value, 0),
+                typicalReel: toFiniteNumber(
+                  state.viewsOverTime?.[pointIndex]?.typicalReel,
+                  Math.round(toFiniteNumber(value, 0) * 0.82)
+                ),
+              }))
+            : [],
+          retentionCurvePercent: Array.isArray(item?.retentionPoints) ? item.retentionPoints : [],
+          engagementCurvePercent: Array.isArray(item?.rates)
+            ? state.engagementPoints
+            : Array.isArray(item?.engagementPoints)
+              ? item.engagementPoints
+              : [],
+        },
+        topSources: normalizeLabelValueRows(item?.topSources, "label", "percentage"),
+      }))
+    : Array.isArray(payload?.selected_reels_insights)
+      ? payload.selected_reels_insights
+          .slice(0, 3)
+          .map((item, index) => normalizeSelectedReelInsight(item, index, state.ageGroups))
+      : [];
+  const primarySelectedInsight = selectedReelsInsights[0] || null;
+
+  const dashboardTop3Views = toFiniteNumber(
+    dashboardOverview.top_3_reels_total_views,
+    selectedReelsInsights.reduce((sum, item) => sum + toFiniteNumber(item?.summary?.views, 0), 0)
+  );
+  const dashboardOtherViews = toFiniteNumber(dashboardOverview.other_content_estimated_views, 0);
+  const derivedTotalViews = dashboardTop3Views + dashboardOtherViews;
+  const views = toFiniteNumber(dashboardOverview.total_30d_views, derivedTotalViews || topLevelMetrics.views || dashboardTop3Views);
+  const accountsReached = toFiniteNumber(
+    dashboardOverview.accounts_reached ?? dashboardOverview.total_30d_accounts_reached,
+    toFiniteNumber(topLevelMetrics.reach, state.accountsReached)
+  );
+  const likes = toFiniteNumber(
+    dashboardOverview.total_30d_likes,
+    selectedReelsInsights.length ? sumSelectedReels(selectedReelsInsights, "likes") : topLevelMetrics.likes
+  );
+  const comments = toFiniteNumber(
+    dashboardOverview.total_30d_comments,
+    selectedReelsInsights.length ? sumSelectedReels(selectedReelsInsights, "comments") : topLevelMetrics.comments
+  );
+  const shares = toFiniteNumber(
+    dashboardOverview.total_30d_shares,
+    selectedReelsInsights.length ? sumSelectedReels(selectedReelsInsights, "shares") : topLevelMetrics.shares
+  );
+  const saves = toFiniteNumber(
+    dashboardOverview.total_30d_saves,
+    selectedReelsInsights.length ? sumSelectedReels(selectedReelsInsights, "saves") : topLevelMetrics.saves
+  );
+  const follows = toFiniteNumber(
+    dashboardOverview.net_followers_30d ?? dashboardOverview.total_30d_follows_gained,
+    selectedReelsInsights.length ? sumSelectedReels(selectedReelsInsights, "summary.follows") : topLevelMetrics.follows_gained
+  );
+  const profileVisits = toFiniteNumber(
+    dashboardOverview.profile_visits_30d ?? dashboardOverview.total_30d_profile_visits,
+    topLevelMetrics.profile_visits
+  );
+  const engagedAccounts = toFiniteNumber(
+    dashboardOverview.accounts_engaged ?? dashboardOverview.total_30d_engaged_accounts,
+    likes + comments + saves + shares
+  );
+  const netFollowers = toFiniteNumber(
+    dashboardOverview.net_followers_30d ?? dashboardOverview.total_30d_follows_gained,
+    toFiniteNumber(topLevelMetrics.follows_gained, state.netFollowers)
+  );
+  const followersPercent = toFiniteNumber(
+    dashboardAudience.followers_percent,
+    toFiniteNumber(audienceSplit.followers_percent, state.followersPercent)
+  );
+  const nonFollowersPercent = toFiniteNumber(
+    dashboardAudience.non_followers_percent,
+    toFiniteNumber(audienceSplit.non_followers_percent, 100 - followersPercent)
+  );
+  const genderMen = toFiniteNumber(
+    dashboardAudience.genderMen ?? dashboardAudience.gender_percent?.male,
+    toFiniteNumber(genderPercent.male, state.genderMen)
+  );
+  const genderWomen = toFiniteNumber(
+    dashboardAudience.genderWomen ?? dashboardAudience.gender_percent?.female ?? 100 - genderMen,
+    toFiniteNumber(genderPercent.female, state.genderWomen)
+  );
+  const videoDuration = toFiniteNumber(payload?.video_duration_seconds, state.videoDuration);
+  const followersCount = toFiniteNumber(
+    dashboardAudience.followers_count ?? dashboardOverview.total_followers,
+    toFiniteNumber(state.followersCount, 0)
+  );
+  const followersGrowthChange = String(
+    dashboardAudience.followers_growth_change ?? state.followersGrowthChange ?? "+0%"
+  );
+
+  const overviewGraphPoints =
+    Array.isArray(dashboardGraphs.views_over_time) && dashboardGraphs.views_over_time.length
+      ? dashboardGraphs.views_over_time
+      : Array.isArray(primarySelectedInsight?.graphs?.viewsOverTime) && primarySelectedInsight.graphs.viewsOverTime.length
+        ? primarySelectedInsight.graphs.viewsOverTime
+      : chartPoints;
+
+  const nextViews = normalizeGraphSeries(overviewGraphPoints, state.viewsOverTime, (point, index) => ({
+    label: point?.label || state.viewsOverTime?.[index]?.label || `Point ${index + 1}`,
+    thisReel: toFiniteNumber(point?.thisReel ?? point?.this_reel ?? point?.views, 0),
+    typicalReel: toFiniteNumber(point?.typicalReel ?? point?.typical_reel ?? point?.benchmark, 0),
+  }));
+
+  const nextRetention = normalizeGraphSeries(
+    Array.isArray(primarySelectedInsight?.graphs?.retentionCurvePercent) && primarySelectedInsight.graphs.retentionCurvePercent.length > 0
+      ? primarySelectedInsight.graphs.retentionCurvePercent
+      : retentionCurve,
+    state.retentionPoints,
+    (value) => Math.max(0, Math.min(100, Math.round(toFiniteNumber(value, 0))))
+  );
+
+  const nextEngagement = normalizeGraphSeries(
+    Array.isArray(primarySelectedInsight?.graphs?.engagementCurvePercent) && primarySelectedInsight.graphs.engagementCurvePercent.length > 0
+      ? primarySelectedInsight.graphs.engagementCurvePercent
+      : engagementCurve,
+    state.engagementPoints,
+    (value) => {
+      const num = toFiniteNumber(value, 0);
+      return Math.max(0, Math.min(20, Number(num.toFixed(1))));
+    }
+  );
+
+  const nextState = {
+    ...state,
+    likes,
+    comments,
+    interactions: engagedAccounts,
+    reposts: toFiniteNumber(topLevelMetrics.reposts ?? topLevelMetrics.reposts_count, state.reposts),
+    shares,
+    saves,
+    views,
+    accountsReached,
+    avgWatchTime: dashboardOverview.avg_watch_time || topLevelMetrics.avg_watch_time || topLevelMetrics.avgWatchTime || state.avgWatchTime,
+    follows,
+    netFollowers,
+    followersCount,
+    followersGrowthChange,
+    profileVisits,
+    followersPercent,
+    genderMen,
+    genderWomen,
+    topSources: [
+      { name: "Reels tab", value: toFiniteNumber(primarySelectedInsight?.topSources?.[0]?.value, toFiniteNumber(dashboardSources.reels_tab, toFiniteNumber(trafficSources.reels_tab, state.topSources?.[0]?.value || 0))) },
+      { name: "Feed", value: toFiniteNumber(primarySelectedInsight?.topSources?.[1]?.value, toFiniteNumber(dashboardSources.feed, toFiniteNumber(trafficSources.feed, state.topSources?.[1]?.value || 0))) },
+      { name: "Explore", value: toFiniteNumber(primarySelectedInsight?.topSources?.[2]?.value, toFiniteNumber(dashboardSources.explore, toFiniteNumber(trafficSources.explore, state.topSources?.[2]?.value || 0))) },
+      { name: "Other", value: toFiniteNumber(primarySelectedInsight?.topSources?.[3]?.value, toFiniteNumber(dashboardSources.other, toFiniteNumber(trafficSources.other, state.topSources?.[3]?.value || 0))) },
+    ],
+    ageGroups: [
+      { label: "13-17", value: toFiniteNumber(dashboardAudience.age_groups_percent?.["13_17"], toFiniteNumber(dashboardAudience.ageGroups?.find?.((item) => item?.label === "13-17")?.percentage, toFiniteNumber(ageGroupsPercent["13_17"], state.ageGroups?.[0]?.value || 0))) },
+      { label: "18-24", value: toFiniteNumber(dashboardAudience.age_groups_percent?.["18_24"], toFiniteNumber(dashboardAudience.ageGroups?.find?.((item) => item?.label === "18-24")?.percentage, toFiniteNumber(ageGroupsPercent["18_24"], state.ageGroups?.[1]?.value || 0))) },
+      { label: "25-34", value: toFiniteNumber(dashboardAudience.age_groups_percent?.["25_34"], toFiniteNumber(dashboardAudience.ageGroups?.find?.((item) => item?.label === "25-34")?.percentage, toFiniteNumber(ageGroupsPercent["25_34"], state.ageGroups?.[2]?.value || 0))) },
+      { label: "35+", value: toFiniteNumber(dashboardAudience.age_groups_percent?.["35_plus"], toFiniteNumber(dashboardAudience.ageGroups?.find?.((item) => item?.label === "35+")?.percentage, toFiniteNumber(ageGroupsPercent["35_plus"], state.ageGroups?.[3]?.value || 0))) },
+    ],
+    countries: [
+      { name: "United States", value: toFiniteNumber(dashboardAudience.tier_1_countries_percent?.united_states, toFiniteNumber(dashboardAudience.countries?.find?.((item) => item?.label === "United States")?.percentage, toFiniteNumber(countriesPercent.united_states, state.countries?.[0]?.value || 0))) },
+      { name: "United Kingdom", value: toFiniteNumber(dashboardAudience.tier_1_countries_percent?.united_kingdom, toFiniteNumber(dashboardAudience.countries?.find?.((item) => item?.label === "United Kingdom")?.percentage, toFiniteNumber(countriesPercent.united_kingdom, state.countries?.[1]?.value || 0))) },
+      { name: "Canada", value: toFiniteNumber(dashboardAudience.tier_1_countries_percent?.canada, toFiniteNumber(dashboardAudience.countries?.find?.((item) => item?.label === "Canada")?.percentage, toFiniteNumber(countriesPercent.canada, state.countries?.[2]?.value || 0))) },
+      { name: "Australia", value: toFiniteNumber(dashboardAudience.tier_1_countries_percent?.australia, toFiniteNumber(dashboardAudience.countries?.find?.((item) => item?.label === "Australia")?.percentage, toFiniteNumber(countriesPercent.australia, state.countries?.[3]?.value || 0))) },
+    ],
+    viewsOverTime: nextViews,
+    retentionPoints: nextRetention,
+    engagementPoints: nextEngagement,
+    videoDuration: Number.isFinite(videoDuration) && videoDuration > 0 ? Math.max(1, Math.min(180, Math.round(videoDuration))) : state.videoDuration,
+    selectedReelsInsights,
+    audienceGrowthPoints: normalizeGraphSeries(
+      Array.isArray(payload?.dashboard_30d?.follower_growth_trend)
+        ? payload.dashboard_30d.follower_growth_trend
+        : Array.isArray(payload?.dashboard_30d?.daily_reach_trend)
+          ? payload.dashboard_30d.daily_reach_trend
+          : dashboardGraphs.audience_growth_points,
+      state.audienceGrowthPoints,
+      (value) => Math.round(toFiniteNumber(value, 0))
+    ),
+    topCities: Array.isArray(dashboardAudience.top_cities) && dashboardAudience.top_cities.length
+      ? dashboardAudience.top_cities.map((city) => ({
+          name: city.label || city.name || "Unknown",
+          value: toFiniteNumber(city.percentage ?? city.value, 0),
+        }))
+      : state.topCities,
+    activeTimes: Array.isArray(dashboardAudience.active_times) && dashboardAudience.active_times.length
+      ? dashboardAudience.active_times.map((item) => ({
+          day: String(item.day ?? ""),
+          value: Math.max(0, Math.round(toFiniteNumber(item.value, 0))),
+        }))
+      : state.activeTimes,
+    topTimes: Array.isArray(dashboardAudience.top_times) && dashboardAudience.top_times.length
+      ? dashboardAudience.top_times.map((item) => ({
+          day: String(item.day ?? ""),
+          range: String(item.range ?? ""),
+        }))
+      : state.topTimes,
+  };
+
+  nextState.selectedPostData = state.selectedPostData
+    ? {
+        ...state.selectedPostData,
+        likes: selectedReelsInsights.length ? selectedReelsInsights[0].metricsRow.likes : nextState.likes,
+        likesCount: selectedReelsInsights.length ? selectedReelsInsights[0].metricsRow.likes : nextState.likes,
+        comments: selectedReelsInsights.length ? selectedReelsInsights[0].metricsRow.comments : nextState.comments,
+        commentsCount: selectedReelsInsights.length ? selectedReelsInsights[0].metricsRow.comments : nextState.comments,
+        reposts: nextState.reposts,
+        repostsCount: nextState.reposts,
+        shares: selectedReelsInsights.length ? selectedReelsInsights[0].metricsRow.shares : nextState.shares,
+        sharesCount: selectedReelsInsights.length ? selectedReelsInsights[0].metricsRow.shares : nextState.shares,
+        saves: selectedReelsInsights.length ? selectedReelsInsights[0].metricsRow.saves : nextState.saves,
+        savesCount: selectedReelsInsights.length ? selectedReelsInsights[0].metricsRow.saves : nextState.saves,
+        views: selectedReelsInsights.length ? selectedReelsInsights[0].summary.views : nextState.views,
+        viewCount: selectedReelsInsights.length ? selectedReelsInsights[0].summary.views : nextState.views,
+      }
+    : null;
+  nextState.rates = calculateDerivedRates(nextState);
+
+  return nextState;
+}
 
 function reelDataReducer(state, action) {
   const safeArray = (value, fallback) => {
@@ -163,7 +559,34 @@ function reelDataReducer(state, action) {
 
   switch (action.type) {
     case "SET_SCREEN":
-      return { ...state, currentScreen: action.value };
+      if (!action.value || action.value === state.currentScreen) {
+        return state;
+      }
+      return {
+        ...state,
+        currentScreen: action.value,
+        screenHistory: [...(Array.isArray(state.screenHistory) ? state.screenHistory : []), state.currentScreen],
+      };
+
+    case "GO_BACK": {
+      const history = Array.isArray(state.screenHistory) ? state.screenHistory : [];
+      if (!history.length) {
+        if (state.currentScreen === "home") {
+          return state;
+        }
+        return {
+          ...state,
+          currentScreen: "home",
+          screenHistory: [],
+        };
+      }
+      const previousScreen = history[history.length - 1];
+      return {
+        ...state,
+        currentScreen: previousScreen,
+        screenHistory: history.slice(0, -1),
+      };
+    }
 
     case "SET_SELECTED_POST_URI":
       return { ...state, selectedPostUri: action.uri };
@@ -180,6 +603,41 @@ function reelDataReducer(state, action) {
     case "SET_THUMBNAIL":
       return { ...state, thumbnailUri: action.uri };
 
+    case "APPLY_HISTORICAL_BASELINE":
+      if (!action.selectedPost) {
+        return state;
+      }
+
+      const baseline = buildHistoricalInsightsBaseline(action.selectedPost, action.sourceReels || []);
+      const baselineState = {
+        ...state,
+        thumbnailUri: baseline.thumbnailUri || state.thumbnailUri,
+        views: baseline.views,
+        likes: baseline.likes,
+        comments: baseline.comments,
+        reposts: baseline.reposts,
+        shares: baseline.shares,
+        saves: baseline.saves,
+        accountsReached: baseline.accountsReached,
+        follows: baseline.follows,
+        profileVisits: baseline.profileVisits,
+        avgWatchTime: baseline.avgWatchTime,
+        followersPercent: baseline.followersPercent,
+        topSources: baseline.topSources,
+        viewsOverTime: baseline.viewsOverTime,
+        retentionPoints: baseline.retentionPoints,
+        engagementPoints: baseline.engagementPoints,
+        videoDuration: baseline.videoDuration,
+      };
+      baselineState.selectedPostData = syncSelectedPost(state.selectedPostData, "views", baseline.views);
+      baselineState.selectedPostData = syncSelectedPost(baselineState.selectedPostData, "likes", baseline.likes);
+      baselineState.selectedPostData = syncSelectedPost(baselineState.selectedPostData, "comments", baseline.comments);
+      baselineState.selectedPostData = syncSelectedPost(baselineState.selectedPostData, "shares", baseline.shares);
+      baselineState.selectedPostData = syncSelectedPost(baselineState.selectedPostData, "saves", baseline.saves);
+      baselineState.selectedPostData = syncSelectedPost(baselineState.selectedPostData, "videoDuration", baseline.videoDuration);
+      baselineState.rates = calculateDerivedRates(baselineState);
+      return baselineState;
+
     case "UPDATE_FIELD":
       const newState = { ...state, [action.field]: action.value };
       newState.selectedPostData = syncSelectedPost(state.selectedPostData, action.field, action.value);
@@ -193,56 +651,13 @@ function reelDataReducer(state, action) {
           action.field === "saves" ||
           action.field === "views") {
         
-        const accountsReached = action.field === "accountsReached" ? action.value : state.accountsReached;
-        const views = action.field === "views" ? action.value : state.views;
-        const likes = action.field === "likes" ? action.value : state.likes;
-        const comments = action.field === "comments" ? action.value : state.comments;
-        const reposts = action.field === "reposts" ? action.value : state.reposts;
-        const shares = action.field === "shares" ? action.value : state.shares;
-        const saves = action.field === "saves" ? action.value : state.saves;
-        
-        // Calculate rates as percentage of accounts reached
-        const calculateRate = (count) => {
-          if (accountsReached > 0) {
-            return parseFloat(((count / accountsReached) * 100).toFixed(1));
-          }
-          return 0;
-        };
-        
-        // Calculate skip rate based on views (views not reached / accounts reached)
-        const calculateSkipRate = () => {
-          if (accountsReached > 0 && views > 0) {
-            const skipped = accountsReached - views;
-            if (skipped > 0) {
-              return parseFloat(((skipped / accountsReached) * 100).toFixed(1));
-            }
-          }
-          return 0;
-        };
-        
-        // Update rates array with calculated values
-        const currentRates = safeArray(state.rates, DEFAULT_DATA.rates);
-        newState.rates = currentRates.map(rate => {
-          switch (rate.key) {
-            case "skip":
-              return { ...rate, value: calculateSkipRate() };
-            case "like":
-              return { ...rate, value: calculateRate(likes) };
-            case "comment":
-              return { ...rate, value: calculateRate(comments) };
-            case "repost":
-              return { ...rate, value: calculateRate(reposts) };
-            case "share":
-              return { ...rate, value: calculateRate(shares) };
-            case "save":
-              return { ...rate, value: calculateRate(saves) };
-            default:
-              return rate;
-          }
-        });
+        newState.rates = calculateDerivedRates(newState);
       }
       
       return newState;
+
+    case "APPLY_GEMINI_PAYLOAD":
+      return applyGeminiPayloadToState(state, action.payload);
 
     case "UPDATE_VIEWS_OVER_TIME":
       return { ...state, viewsOverTime: action.data };
@@ -458,6 +873,7 @@ function reelDataReducer(state, action) {
       hydratedData.activeTimes = safeArray(hydratedData.activeTimes, DEFAULT_DATA.activeTimes);
       hydratedData.topTimes = safeArray(hydratedData.topTimes, DEFAULT_DATA.topTimes);
       hydratedData.topCities = safeArray(hydratedData.topCities, DEFAULT_DATA.topCities);
+      hydratedData.screenHistory = Array.isArray(hydratedData.screenHistory) ? hydratedData.screenHistory : [];
       
       // Validate ageGroups structure - ensure they use 'label' key
       if (hydratedData.ageGroups && hydratedData.ageGroups.length > 0) {
@@ -516,6 +932,12 @@ export function ReelDataProvider({ children }) {
       }
     })();
   }, [state]);
+
+  useEffect(() => {
+    if (state.selectedPostData) {
+      publishSelectedPostSync(state.selectedPostData);
+    }
+  }, [state.selectedPostData]);
 
   return (
     <ReelDataContext.Provider value={{ state, dispatch }}>

@@ -7,7 +7,7 @@
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/logo.png",
+      "image": "./assets/instagram-splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -38,9 +38,19 @@
     "plugins": [
       "expo-font",
       [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/instagram-splash.png",
+          "imageWidth": 320
+        }
+      ],
+      [
         "expo-image-picker",
         {
-          "photosPermission": "The app accesses your photos to let you add custom thumbnails."
+          "photosPermission": "The app accesses your photos so you can attach screenshots and references for AI reel insights.",
+          "cameraPermission": "The app accesses your camera so you can capture reel analytics references for AI insights.",
+          "microphonePermission": false
         }
       ]
     ],

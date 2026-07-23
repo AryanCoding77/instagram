@@ -6,29 +6,15 @@ import { C } from "../constants/colors";
 import { useProfileData } from "../context/ProfileDataContext";
 import { useReelData } from "../context/ReelDataContext";
 import { formatCompactCountWhole, formatCount } from "../constants/profileData";
+import LikeIcon from "../components/icons/LikeIcon";
+import CommentIcon from "../components/icons/CommentIcon";
+import RepostIcon from "../components/RepostIcon";
+import ShareIcon from "../components/icons/ShareIcon";
+import ClipIcon from "../components/icons/ClipIcon";
 
 const FILTERS = ["Latest", "Views", "Accounts reached", "Follows", "Likes", "Comments", "Reposts", "Shares", "Saves"];
 
-const REELS_ICON_ASSET = require("../../assets/icons/reels-icon.png");
 const STORY_ICON_ASSET = require("../../assets/icons/story-icon.png");
-const LIKE_ICON_ASSET = require("../../assets/icons/like.png");
-const COMMENT_ICON_ASSET = require("../../assets/icons/comment.png");
-const REPOST_ICON_ASSET = require("../../assets/icons/repost.png");
-const SHARE_ICON_ASSET = require("../../assets/icons/share.png");
-
-function ThickenedIcon({ source, size = 12, bolder = false }) {
-  const offset = bolder ? 0.4 : 0.32;
-  const layerSize = size + 1;
-  return (
-    <View style={[styles.iconBox, { width: layerSize, height: layerSize }]}>
-      <Image source={source} style={[styles.iconLayer, { transform: [{ translateY: -offset }] }]} resizeMode="contain" />
-      <Image source={source} style={[styles.iconLayer, { transform: [{ translateX: offset }] }]} resizeMode="contain" />
-      <Image source={source} style={[styles.iconLayer, { transform: [{ translateY: offset }] }]} resizeMode="contain" />
-      <Image source={source} style={[styles.iconLayer, { transform: [{ translateX: -offset }] }]} resizeMode="contain" />
-      <Image source={source} style={styles.iconLayer} resizeMode="contain" />
-    </View>
-  );
-}
 
 const MOCK_CONTENT_ITEMS = [
   {
@@ -36,9 +22,9 @@ const MOCK_CONTENT_ITEMS = [
     time: "21h",
     views: "400",
     stats: [
-      { icon: LIKE_ICON_ASSET, value: "40" },
-      { icon: SHARE_ICON_ASSET, value: "0" },
-      { icon: REPOST_ICON_ASSET, value: "0" },
+      { icon: LikeIcon, value: "40" },
+      { icon: ShareIcon, value: "0" },
+      { icon: RepostIcon, value: "0" },
     ],
     colors: ["#262626", "#6E7E8C", "#BCC7D3"],
     accent: "clock",
@@ -48,9 +34,9 @@ const MOCK_CONTENT_ITEMS = [
     time: "22h",
     views: "491",
     stats: [
-      { icon: LIKE_ICON_ASSET, value: "48" },
-      { icon: SHARE_ICON_ASSET, value: "0" },
-      { icon: REPOST_ICON_ASSET, value: "1" },
+      { icon: LikeIcon, value: "48" },
+      { icon: ShareIcon, value: "0" },
+      { icon: RepostIcon, value: "1" },
     ],
     colors: ["#6F91B7", "#2B394E", "#D7C2A2"],
     accent: "clock",
@@ -60,9 +46,9 @@ const MOCK_CONTENT_ITEMS = [
     time: "1d",
     views: "604",
     stats: [
-      { icon: LIKE_ICON_ASSET, value: "59" },
-      { icon: SHARE_ICON_ASSET, value: "0" },
-      { icon: REPOST_ICON_ASSET, value: "0" },
+      { icon: LikeIcon, value: "59" },
+      { icon: ShareIcon, value: "0" },
+      { icon: RepostIcon, value: "0" },
     ],
     colors: ["#4A5366", "#D39A2C", "#C66A22"],
     accent: "clock",
@@ -73,10 +59,10 @@ const MOCK_CONTENT_ITEMS = [
     title: "I Guess it could\u{1F642}...",
     views: "5.1k",
     stats: [
-      { icon: LIKE_ICON_ASSET, value: "222" },
-      { icon: COMMENT_ICON_ASSET, value: "2" },
-      { icon: REPOST_ICON_ASSET, value: "5" },
-      { icon: SHARE_ICON_ASSET, value: "11" },
+      { icon: LikeIcon, value: "222" },
+      { icon: CommentIcon, value: "2" },
+      { icon: RepostIcon, value: "5" },
+      { icon: ShareIcon, value: "11" },
     ],
     colors: ["#C88A21", "#8D4A1E", "#191919"],
     accent: "play",
@@ -86,9 +72,9 @@ const MOCK_CONTENT_ITEMS = [
     time: "2d",
     views: "554",
     stats: [
-      { icon: LIKE_ICON_ASSET, value: "45" },
-      { icon: SHARE_ICON_ASSET, value: "0" },
-      { icon: REPOST_ICON_ASSET, value: "1" },
+      { icon: LikeIcon, value: "45" },
+      { icon: ShareIcon, value: "0" },
+      { icon: RepostIcon, value: "1" },
     ],
     colors: ["#0F2C55", "#A7C1E6", "#233A63"],
     accent: "clock",
@@ -98,9 +84,9 @@ const MOCK_CONTENT_ITEMS = [
     time: "4d",
     views: "621",
     stats: [
-      { icon: LIKE_ICON_ASSET, value: "68" },
-      { icon: SHARE_ICON_ASSET, value: "1" },
-      { icon: REPOST_ICON_ASSET, value: "5" },
+      { icon: LikeIcon, value: "68" },
+      { icon: ShareIcon, value: "1" },
+      { icon: RepostIcon, value: "5" },
     ],
     colors: ["#3B8CBE", "#DCE5EE", "#1A4A78"],
     accent: "clock",
@@ -110,9 +96,9 @@ const MOCK_CONTENT_ITEMS = [
     time: "6d",
     views: "566",
     stats: [
-      { icon: LIKE_ICON_ASSET, value: "63" },
-      { icon: SHARE_ICON_ASSET, value: "0" },
-      { icon: REPOST_ICON_ASSET, value: "2" },
+      { icon: LikeIcon, value: "63" },
+      { icon: ShareIcon, value: "0" },
+      { icon: RepostIcon, value: "2" },
     ],
     colors: ["#D66A54", "#F5B87E", "#C53E2C"],
     accent: "clock",
@@ -122,9 +108,9 @@ const MOCK_CONTENT_ITEMS = [
     time: "1w",
     views: "544",
     stats: [
-      { icon: LIKE_ICON_ASSET, value: "39" },
-      { icon: SHARE_ICON_ASSET, value: "1" },
-      { icon: REPOST_ICON_ASSET, value: "2" },
+      { icon: LikeIcon, value: "39" },
+      { icon: ShareIcon, value: "1" },
+      { icon: RepostIcon, value: "2" },
     ],
     colors: ["#D6A04B", "#F2E6C9", "#5F3B19"],
     accent: "clock",
@@ -208,10 +194,10 @@ function buildContentItems(reels = [], selectedPostData = null) {
       title: truncateCaption(item.caption || item.description || ""),
       views: formatCompactCountWhole(item.viewCount || 0),
       stats: [
-        { icon: LIKE_ICON_ASSET, value: formatCount(item.likesCount || 0) },
-        { icon: COMMENT_ICON_ASSET, value: formatCount(item.commentsCount || 0) },
-        { icon: REPOST_ICON_ASSET, value: "0" },
-        { icon: SHARE_ICON_ASSET, value: "0" },
+        { icon: LikeIcon, value: formatCount(item.likesCount || 0) },
+        { icon: CommentIcon, value: formatCount(item.commentsCount || 0) },
+        { icon: RepostIcon, value: "0" },
+        { icon: ShareIcon, value: "0" },
       ],
       thumbnailUri: item.thumbnailUri || item.videoUrl || "",
       colors: ["#262626", "#6E7E8C", "#BCC7D3"],
@@ -251,15 +237,17 @@ function SkeletonLine({ width, height, style }) {
 }
 
 function ContentThumbnail({ colors, badge, thumbnailUri }) {
-  const assetSource = badge === "story" ? STORY_ICON_ASSET : REELS_ICON_ASSET;
-
   if (thumbnailUri) {
     return (
       <View style={styles.thumbShell}>
         <ImageBackground source={{ uri: thumbnailUri }} style={styles.thumbBg} imageStyle={styles.thumbImage}>
           <View style={styles.thumbOverlay} />
           <View style={styles.badgeWrap} pointerEvents="none">
-            <Image source={assetSource} style={styles.badgeIcon} resizeMode="contain" />
+            {badge === "story" ? (
+              <Image source={STORY_ICON_ASSET} style={styles.badgeIcon} resizeMode="contain" />
+            ) : (
+              <ClipIcon size={13} color="#FFFFFF" />
+            )}
           </View>
         </ImageBackground>
       </View>
@@ -271,7 +259,7 @@ function ContentThumbnail({ colors, badge, thumbnailUri }) {
       <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbBg}>
         <View style={styles.thumbOverlay} />
         <View style={styles.badgeWrap} pointerEvents="none">
-          <Image source={assetSource} style={styles.badgeIcon} resizeMode="contain" />
+          {badge === "story" ? <Image source={STORY_ICON_ASSET} style={styles.badgeIcon} resizeMode="contain" /> : <ClipIcon size={13} color="#FFFFFF" />}
         </View>
       </LinearGradient>
     </View>
@@ -295,9 +283,10 @@ function ContentRow({ item }) {
 
         <View style={styles.statsRow}>
           {item.stats.map((stat, index) => {
+            const Icon = stat.icon;
             return (
               <View key={`${stat.value}-${index}`} style={styles.statItem}>
-                <ThickenedIcon source={stat.icon} size={12} bolder={index === 0} />
+                <Icon size={12} color="#111111" />
                 <Text style={styles.statText}>{stat.value}</Text>
               </View>
             );
@@ -477,16 +466,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-  },
-  iconBox: {
-    position: "relative",
-    marginRight: 1,
-  },
-  iconLayer: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%",
-    tintColor: "#111111",
   },
   statText: {
     fontSize: 12,

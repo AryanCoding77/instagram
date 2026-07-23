@@ -1,8 +1,9 @@
 import React from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
-import { Plus, Heart } from "lucide-react-native";
+import { Plus } from "lucide-react-native";
 import { C } from "../constants/colors";
 import InstagramLogo from "../../assets/instagram-logo.svg";
+import LikeIcon from "./icons/LikeIcon";
 
 export default function HomeHeader() {
   return (
@@ -19,7 +20,7 @@ export default function HomeHeader() {
 
       {/* Right icon */}
       <TouchableOpacity activeOpacity={0.7} style={styles.iconBtn}>
-        <Heart size={26} color={C.black} strokeWidth={1.75} fill="none" />
+        <LikeIcon size={26} color={C.black} />
       </TouchableOpacity>
     </View>
   );

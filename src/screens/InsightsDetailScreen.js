@@ -13,15 +13,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { ClipPath, Defs, Path, Polyline, Rect, Text as SvgText, Line } from "react-native-svg";
 import {
   ArrowUpRightFromSquare,
-  Bookmark,
   ChevronDown,
   ChevronRight,
   Check,
-  CornerUpLeft,
-  Heart,
   Info,
-  MessageCircle,
-  Repeat2,
   Store,
   Upload,
   UserRound,
@@ -29,12 +24,20 @@ import {
 import { useReelData } from "../context/ReelDataContext";
 import { useProfileData } from "../context/ProfileDataContext";
 import { C } from "../constants/colors";
+import AiAssistantSheet from "../components/AiAssistantSheet";
 import GraphEditorSheet from "../components/GraphEditorSheet";
 import EditableNumber from "../components/EditableNumber";
 import EditableText from "../components/EditableText";
+import BackArrowIcon from "../components/icons/BackArrowIcon";
 import InsightsContentTab from "./InsightsContentTab";
 import InsightsAudienceTab from "./InsightsAudienceTab";
 import { formatCompactCountWhole, formatCount } from "../constants/profileData";
+import ViewCountIcon from "../components/icons/ViewCountIcon";
+import LikeIcon from "../components/icons/LikeIcon";
+import CommentIcon from "../components/icons/CommentIcon";
+import RepostIcon from "../components/RepostIcon";
+import ShareIcon from "../components/icons/ShareIcon";
+import SaveIcon from "../components/icons/SaveIcon";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SIDE_PAD = 16;
@@ -68,8 +71,6 @@ const DEFAULT_TOP_CONTENT_ITEMS = [
 ];
 
 const TOP_CONTENT_REELS_ICON_ASSET = require("../../assets/icons/video-views.png");
-
-const TOP_CONTENT_EYE_ASSET = require("../../assets/icons/views-eye.png");
 
 const CHART_HEIGHT = 160;
 const CHART_LABEL_Y = 148;
@@ -158,12 +159,12 @@ function buildSelectedPostPayload(item, profile) {
 
 const INTERACTION_FILTERS = [
   { label: "All" },
-  { label: "Likes", icon: Heart },
-  { label: "Comments", icon: MessageCircle },
-  { label: "Reposts", icon: Repeat2 },
-  { label: "Saves", icon: Bookmark },
-  { label: "Shares", icon: Repeat2 },
-  { label: "Replies", icon: CornerUpLeft },
+  { label: "Likes", icon: LikeIcon },
+  { label: "Comments", icon: CommentIcon },
+  { label: "Reposts", icon: RepostIcon },
+  { label: "Saves", icon: SaveIcon },
+  { label: "Shares", icon: ShareIcon },
+  { label: "Replies", icon: RepostIcon },
 ];
 
 const INTERACTION_TYPES = [
@@ -218,20 +219,6 @@ const PROFILE_ACTIVITY = [
   { label: "Bio link taps", value: "342", icon: ArrowUpRightFromSquare },
   { label: "Business address taps", value: "0", icon: Store },
 ];
-
-function BackArrowIcon({ size = 28, color = "#111111" }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 30 30" fill="none">
-      <Path
-        d="M27 15H8.7M8.7 15L15.2 9.1M8.7 15L15.2 20.9"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 function buildChartPath(values, width, height, maxValue = 262) {
   const padLeft = 44;
@@ -336,6 +323,7 @@ export default function InsightsDetailScreen() {
   const [activeChartPoint, setActiveChartPoint] = useState(null);
   const [activeInteractionFilter, setActiveInteractionFilter] = useState("All");
   const [graphEditorVisible, setGraphEditorVisible] = useState(false);
+  const [aiVisible, setAiVisible] = useState(false);
   const chartWidth = SCREEN_WIDTH - SIDE_PAD * 2;
   const profile = profileState.profile || {};
   const profileReels = Array.isArray(profile.reels) ? profile.reels : [];
@@ -398,12 +386,20 @@ export default function InsightsDetailScreen() {
     () => buildChartPath(chartValues, chartWidth, CHART_HEIGHT, chartMax),
     [chartWidth, chartValues, chartMax]
   );
+  const followersSplit = useMemo(() => {
+    const followers = Math.max(0, Math.min(100, Number(state.followersPercent ?? 0) || 0));
+    return {
+      followers: followers.toFixed(1),
+      nonFollowers: (100 - followers).toFixed(1),
+    };
+  }, [state.followersPercent]);
   const overviewCards = useMemo(() => {
     const selectedPost = state.selectedPostData || effectiveReels[0] || null;
-    const selectedViews = selectedPost?.views ?? selectedPost?.viewCount ?? profile.dashboardViews ?? 0;
+    const selectedViews = profile.dashboardViews ?? selectedPost?.views ?? selectedPost?.viewCount ?? state.views ?? 0;
     const selectedInteractions =
+      Number(state.interactions ?? 0) ||
       (selectedPost?.likes ?? selectedPost?.likesCount ?? 0) +
-      (selectedPost?.comments ?? selectedPost?.commentsCount ?? 0);
+        (selectedPost?.comments ?? selectedPost?.commentsCount ?? 0);
 
     return [
       {
@@ -426,7 +422,7 @@ export default function InsightsDetailScreen() {
         field: "interactions",
       },
     ];
-  }, [profile.dashboardViews, effectiveReels, state.selectedPostData, state.interactions, state.netFollowers]);
+  }, [profile.dashboardViews, effectiveReels, state.selectedPostData, state.interactions, state.netFollowers, state.views]);
   const topContentItems = useMemo(() => buildTopContentItems(effectiveReels), [effectiveReels]);
   const contentTypeItems = useMemo(() => {
     const rows = Array.isArray(state.contentTypeBreakdown) && state.contentTypeBreakdown.length
@@ -511,7 +507,7 @@ export default function InsightsDetailScreen() {
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.iconBtn}
-              onPress={() => dispatch({ type: "SET_SCREEN", value: "professionalDashboard" })}
+              onPress={() => dispatch({ type: "GO_BACK" })}
             >
               <BackArrowIcon />
             </TouchableOpacity>
@@ -533,13 +529,18 @@ export default function InsightsDetailScreen() {
 
             <View style={styles.topBarActions}>
               {state.isEditing ? (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => dispatch({ type: "SET_EDITING", value: false })}
-                  style={styles.headerDoneBtn}
-                >
-                  <Text style={styles.headerDoneText}>Done</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity activeOpacity={0.7} style={styles.headerAiBtn} onPress={() => setAiVisible(true)}>
+                    <Text style={styles.headerAiBtnText}>AI</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => dispatch({ type: "SET_EDITING", value: false })}
+                    style={styles.headerDoneBtn}
+                  >
+                    <Text style={styles.headerDoneText}>Done</Text>
+                  </TouchableOpacity>
+                </>
               ) : (
                 <>
                   <TouchableOpacity activeOpacity={0.7} style={styles.headerActionBtn}>
@@ -667,10 +668,10 @@ export default function InsightsDetailScreen() {
 
         <View style={styles.followersSplit}>
           <Text style={styles.followersText}>
-            <Text style={styles.followersValue}>6.0%</Text> followers
+            <Text style={styles.followersValue}>{followersSplit.followers}%</Text> followers
           </Text>
           <Text style={styles.followersText}>
-            <Text style={styles.followersValue}>94.0%</Text> non-followers
+            <Text style={styles.followersValue}>{followersSplit.nonFollowers}%</Text> non-followers
           </Text>
         </View>
 
@@ -908,17 +909,16 @@ export default function InsightsDetailScreen() {
                     dispatch({ type: "SET_SELECTED_POST_DATA", data: buildSelectedPostPayload(selected, profile) });
                     dispatch({ type: "SET_SELECTED_POST_URI", uri: selected.thumbnailUri || selected.videoUrl || item.uri });
                     dispatch({ type: "SET_THUMBNAIL", uri: selected.thumbnailUri || selected.videoUrl || item.uri });
-                    dispatch({ type: "UPDATE_FIELD", field: "thumbnailUri", value: selected.thumbnailUri || selected.videoUrl || item.uri });
-                    dispatch({ type: "UPDATE_FIELD", field: "views", value: Number(selected.viewCount) || 0 });
-                    dispatch({ type: "UPDATE_FIELD", field: "likes", value: Number(selected.likesCount) || 0 });
-                    dispatch({ type: "UPDATE_FIELD", field: "comments", value: Number(selected.commentsCount) || 0 });
-                    if (selected.videoDuration) {
-                      dispatch({
-                        type: "UPDATE_FIELD",
-                        field: "videoDuration",
-                        value: Math.round(Number(selected.videoDuration)) || 0,
-                      });
-                    }
+                    dispatch({
+                      type: "APPLY_HISTORICAL_BASELINE",
+                      selectedPost: {
+                        ...selected,
+                        views: selected.viewCount || 0,
+                        likes: selected.likesCount || 0,
+                        comments: selected.commentsCount || 0,
+                      },
+                      sourceReels: effectiveReels,
+                    });
                   }
                   dispatch({ type: "SET_SCREEN", value: "insights" });
                 }}
@@ -934,7 +934,7 @@ export default function InsightsDetailScreen() {
                 </View>
                 <View style={styles.topContentCountRow}>
                   <View style={styles.topContentCountIconWrap}>
-                    <Image source={TOP_CONTENT_EYE_ASSET} style={styles.topContentCountIcon} resizeMode="contain" />
+                    <ViewCountIcon size={16} color="#FFFFFF" />
                   </View>
                   <Text style={styles.topContentCount}>{item.value}</Text>
                 </View>
@@ -964,7 +964,7 @@ export default function InsightsDetailScreen() {
               >
                 {(() => {
                   const Icon = filter.icon;
-                  return Icon ? <Icon size={14} color={C.black} strokeWidth={2} /> : null;
+                  return Icon ? <Icon size={14} color={C.black} /> : null;
                 })()}
                 <Text style={[styles.filterChipText, activeInteractionFilter === filter.label && styles.filterChipTextActive]}>
                   {filter.label}
@@ -1047,6 +1047,7 @@ export default function InsightsDetailScreen() {
         visible={graphEditorVisible}
         onClose={() => setGraphEditorVisible(false)}
       />
+      <AiAssistantSheet visible={aiVisible} onClose={() => setAiVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -1119,6 +1120,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#DD2A7B",
     fontFamily: "Inter_700Bold",
+  },
+  headerAiBtn: {
+    minHeight: 30,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "#111111",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  headerAiBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
   },
   headerActionBtn: {
     width: 34,

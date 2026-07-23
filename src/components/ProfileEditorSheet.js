@@ -42,7 +42,7 @@ const STEP_IDS = ["start", "profile", "reels", "apply"];
 const STEP_LABELS = {
   start: "Connecting to Apify...",
   profile: "Fetching profile and bio...",
-  reels: "Fetching top 15 reels...",
+  reels: "Fetching reels...",
   apply: "Applying data to profile...",
 };
 
@@ -332,16 +332,34 @@ export default function ProfileEditorSheet() {
         steps: { ...current.steps, start: "done", profile: "active" },
       }));
 
-      console.log("[ProfileEditorSheet] fetching profile actor...");
-      const profileRaw = await fetchInstagramProfile(username);
-      console.log("[ProfileEditorSheet] profile actor complete", {
-        followersCount: profileRaw.followersCount,
-        postsCount: profileRaw.postsCount,
-        latestPosts: profileRaw.latestPosts?.length || 0,
-        highlights: profileRaw.highlights?.length || 0,
-        threadsLabel: profileRaw.threadsLabel || "",
-        noteText: profileRaw.noteText || "",
-      });
+      let profileRaw = {
+        fullName: localProfile.displayName || username,
+        biography: localProfile.bio || "",
+        followersCount: localProfile.followersCount || 0,
+        followsCount: localProfile.followingCount || 0,
+        postsCount: localProfile.postsCount || 0,
+        externalUrl: localProfile.externalUrl || "",
+        verified: localProfile.isVerified || false,
+        latestPosts: [],
+        highlights: [],
+        categoryText: localProfile.categoryText || "",
+        noteText: localProfile.noteText || "",
+        threadsLabel: localProfile.threadsLabel || "",
+      };
+
+      if (username) {
+        console.log("[ProfileEditorSheet] fetching profile actor...");
+        profileRaw = await fetchInstagramProfile(username);
+        console.log("[ProfileEditorSheet] profile actor complete", {
+          followersCount: profileRaw.followersCount,
+          postsCount: profileRaw.postsCount,
+          latestPosts: profileRaw.latestPosts?.length || 0,
+          highlights: profileRaw.highlights?.length || 0,
+          categoryText: profileRaw.categoryText || "",
+          threadsLabel: profileRaw.threadsLabel || "",
+          noteText: profileRaw.noteText || "",
+        });
+      }
 
       setProgress((current) => ({
         ...current,
@@ -349,6 +367,7 @@ export default function ProfileEditorSheet() {
       }));
 
       const extractedHighlights = Array.isArray(profileRaw.highlights) ? profileRaw.highlights : [];
+      const extractedCategoryText = (profileRaw.categoryText || "").trim();
       const extractedThreadsLabel = (profileRaw.threadsLabel || "").trim();
       const extractedNoteText = (profileRaw.noteText || "").trim();
 
@@ -358,6 +377,10 @@ export default function ProfileEditorSheet() {
         console.log("[ProfileEditorSheet] reels actor returned no posts, falling back to profile latestPosts...");
         reels = Array.isArray(profileRaw.latestPosts) ? profileRaw.latestPosts : [];
       }
+      const dashboardViews = reels.reduce(
+        (sum, item) => sum + (Number(item?.viewCount ?? item?.views ?? 0) || 0),
+        0
+      );
       console.log("[ProfileEditorSheet] content extraction complete", {
         posts: reels.length,
         highlights: extractedHighlights.length,
@@ -382,18 +405,20 @@ export default function ProfileEditorSheet() {
           followersCount: profileRaw.followersCount || 0,
           followingCount: profileRaw.followsCount || 0,
           postsCount: profileRaw.postsCount || 0,
+          dashboardViews: dashboardViews || localProfile.dashboardViews || 0,
           externalUrl: profileRaw.externalUrl || "",
           isVerified: profileRaw.verified || false,
           reels,
           highlightItems: extractedHighlights,
           highlightsVisible: extractedHighlights.length > 0,
+          categoryText: extractedCategoryText || localProfile.categoryText || "",
+          noteVisible: Boolean(extractedCategoryText || extractedNoteText || localProfile.noteVisible),
           noteText: extractedNoteText || localProfile.noteText || "",
-          noteVisible: Boolean(extractedNoteText),
           threadsLabel: extractedThreadsLabel,
           threadsRowVisible: Boolean(extractedThreadsLabel),
         },
       });
-      dispatch({ type: "SET_LAST_LOADED_USERNAME", value: username });
+      dispatch({ type: "SET_LAST_LOADED_USERNAME", value: username || null });
       console.log("[ProfileEditorSheet] fetch complete");
       setProgress((current) => ({
         ...current,
@@ -537,16 +562,16 @@ export default function ProfileEditorSheet() {
               <View style={styles.fetchRow}>
                 <View style={styles.fetchInputWrap}>
                   <Text style={styles.fetchLabel}>Username</Text>
-                <TextInput
-                  value={localProfile.username}
-                  onChangeText={(value) => updateLocal("username", value)}
-                  placeholder="username"
-                  placeholderTextColor="#C0C0C0"
-                  autoCapitalize="none"
-                  onFocus={() => console.log("[ProfileEditorSheet] username input focused")}
-                  onBlur={() => console.log("[ProfileEditorSheet] username input blurred")}
-                  style={styles.fetchInput}
-                />
+                  <TextInput
+                    value={localProfile.username}
+                    onChangeText={(value) => updateLocal("username", value)}
+                    placeholder="username"
+                    placeholderTextColor="#C0C0C0"
+                    autoCapitalize="none"
+                    onFocus={() => console.log("[ProfileEditorSheet] username input focused")}
+                    onBlur={() => console.log("[ProfileEditorSheet] username input blurred")}
+                    style={styles.fetchInput}
+                  />
                 </View>
 
                 <TouchableOpacity

@@ -12,13 +12,16 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Plus,
-  Heart,
-  MessageCircle,
   MoreVertical,
   ChevronDown,
   SlidersHorizontal,
 } from "lucide-react-native";
 import BottomTabBar from "../components/BottomTabBar";
+import LikeIcon from "../components/icons/LikeIcon";
+import CommentIcon from "../components/icons/CommentIcon";
+import RepostIcon from "../components/RepostIcon";
+import ShareIcon from "../components/icons/ShareIcon";
+import SaveIcon from "../components/icons/SaveIcon";
 import { FEED_POSTS } from "../constants/mockData";
 import { C } from "../constants/colors";
 
@@ -28,11 +31,11 @@ const BOTTOM_NAV_HEIGHT = 52;
 const REEL_ITEMS = FEED_POSTS.filter((post) => post.type === "reel");
 
 const ACTIONS = [
-  { value: "69.8K" },
-  { value: "172" },
-  { value: "4,039", icon: require("../../assets/icons/repost.png") },
-  { value: "28K", icon: require("../../assets/icons/share.png") },
-  { value: "3,510", icon: require("../../assets/icons/saved.png") },
+  { value: "69.8K", icon: LikeIcon },
+  { value: "172", icon: CommentIcon },
+  { value: "4,039", icon: RepostIcon },
+  { value: "28K", icon: ShareIcon },
+  { value: "3,510", icon: SaveIcon },
 ];
 
 function ReelsCard({ item, cardHeight }) {
@@ -79,15 +82,10 @@ function ReelsCard({ item, cardHeight }) {
 
         <View style={[styles.actionsRail, { top: cardHeight * 0.33 }]}>
           {ACTIONS.map((action, index) => {
+            const Icon = action.icon;
             return (
               <View key={action.value} style={styles.actionItem}>
-                {index === 0 ? (
-                  <Heart size={26} color={C.white} strokeWidth={1.95} fill="none" />
-                ) : index === 1 ? (
-                  <MessageCircle size={26} color={C.white} strokeWidth={1.95} fill="none" />
-                ) : (
-                  <Image source={action.icon} style={styles.actionIcon} resizeMode="contain" />
-                )}
+                <Icon size={26} color={C.white} />
                 <Text style={styles.actionValue}>{action.value}</Text>
               </View>
             );

@@ -25,15 +25,16 @@ export const DEFAULT_PROFILE_DATA = {
   profilePicUri: "https://picsum.photos/seed/myavatar/200",
   followersCount: 75,
   followingCount: 111,
-  postsCount: 1,
+  postsCount: PROFILE_POSTS.length,
   dashboardViews: 515700,
   externalUrl: "",
   isVerified: false,
   dashboardVisible: true,
   threadsRowVisible: true,
   highlightsVisible: true,
+  categoryText: "",
   noteVisible: true,
-  noteText: "Ready for...",
+  noteText: "",
   threadsLabel: "wonders_craft_",
   highlightItems: null,
   reels: PROFILE_POSTS.map((post) => ({
@@ -48,3 +49,11 @@ export const DEFAULT_PROFILE_DATA = {
     timestamp: post.date,
   })),
 };
+
+const profileData = {
+  formatCount,
+  formatCompactCountWhole,
+  DEFAULT_PROFILE_DATA,
+};
+
+export default profileData;

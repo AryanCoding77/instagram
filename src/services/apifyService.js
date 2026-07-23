@@ -44,6 +44,33 @@ function pickCount(source, keys) {
   return parseCountValue(value);
 }
 
+function pickText(source, keys) {
+  const value = pickFirst(source, keys);
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return pickText({ value: value[0] }, ["value"]);
+  }
+
+  if (value && typeof value === "object") {
+    return (
+      pickText(value, [
+        "name",
+        "title",
+        "label",
+        "text",
+        "value",
+        "categoryName",
+        "category_name",
+      ]) || ""
+    );
+  }
+
+  return "";
+}
+
 function normalizePosts(posts = []) {
   return posts
     .filter(Boolean)
@@ -54,9 +81,26 @@ function normalizePosts(posts = []) {
       const isVideo =
         Boolean(videoUrl) ||
         ["video", "reel", "GraphVideo"].includes(String(pickFirst(item, ["type", "post_type", "mediaType"])).toLowerCase());
+      const isPinned = Boolean(
+        pickFirst(item, [
+          "isPinned",
+          "isPinnedPost",
+          "isPinnedTop",
+          "is_pinned",
+          "is_pinned_post",
+          "pinned",
+          "pinnedPost",
+          "pinned_post",
+          "pinnedStatus",
+          "pinnedAt",
+          "pin",
+        ])
+      );
 
       return {
         id: pickFirst(item, ["id", "shortCode", "shortcode"]) || String(idx),
+        sortIndex: idx,
+        isPinned,
         thumbnailUri: displayUrl || videoUrl || "",
         videoUrl: isVideo ? videoUrl || displayUrl || null : null,
         viewCount: pickCount(item, [
@@ -84,7 +128,13 @@ function normalizePosts(posts = []) {
         displayName: pickFirst(item, ["ownerFullName", "owner_full_name", "fullName"]) || "",
       };
     })
-    .filter((item) => item.thumbnailUri);
+    .filter((item) => item.thumbnailUri)
+    .sort((a, b) => {
+      const pinDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned));
+      if (pinDiff !== 0) return pinDiff;
+      return (a.sortIndex || 0) - (b.sortIndex || 0);
+    })
+    .map(({ sortIndex, ...item }) => item);
 }
 
 function normalizeHighlights(highlights = []) {
@@ -193,6 +243,21 @@ export async function fetchInstagramProfile(username) {
     "profile_note",
     "threadsNote",
   ]);
+  const categoryText = pickText(profile, [
+    "categoryText",
+    "category",
+    "categoryName",
+    "category_name",
+    "profileCategory",
+    "profile_category",
+    "businessCategory",
+    "business_category",
+    "businessCategoryName",
+    "professionalCategory",
+    "professional_category",
+    "accountCategory",
+    "account_category",
+  ]);
   const threadsLabel = pickFirst(profile, [
     "threadsLabel",
     "threadsUsername",
@@ -210,6 +275,7 @@ export async function fetchInstagramProfile(username) {
     postsCount: profile.postsCount || 0,
     externalUrl: profile.externalUrl || "",
     verified: profile.verified || false,
+    categoryText,
     noteText: typeof noteText === "string" ? noteText : "",
     threadsLabel: typeof threadsLabel === "string" ? threadsLabel : "",
     latestPosts,
@@ -218,12 +284,17 @@ export async function fetchInstagramProfile(username) {
 }
 
 export async function fetchInstagramReels(username) {
-  const items = await runAndWait(ACTORS.reels, {
+  const input = {
     dataDetailLevel: "detailedData",
-    resultsLimit: 12,
+    resultsLimit: 100,
     skipPinnedPosts: false,
-    username: [username],
-  });
+  };
+
+  if (String(username || "").trim()) {
+    input.username = [String(username).trim()];
+  }
+
+  const items = await runAndWait(ACTORS.reels, input);
 
   return items.map((item, idx) => ({
     id: item.id || item.shortCode || String(idx),

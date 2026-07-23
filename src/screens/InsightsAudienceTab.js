@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, View, Text, StyleSheet, TouchableOpacity, Dimensions, Modal, ScrollView } from "react-native";
-import Svg, { Line, Polyline, Text as SvgText } from "react-native-svg";
+import Svg, { Line, Polyline, Text as SvgText, Defs, LinearGradient, Stop, Path, Circle, Rect } from "react-native-svg";
 import { Info } from "lucide-react-native";
 import { C } from "../constants/colors";
 import { useReelData } from "../context/ReelDataContext";
@@ -89,16 +89,43 @@ function buildChart(values, width, height) {
   };
 }
 
+function buildAreaPath(values, toX, toY, baselineY) {
+  if (!values.length) return "";
+  const startX = toX(0);
+  const endX = toX(values.length - 1);
+  const linePath = values.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i)} ${toY(v)}`).join(" ");
+  return `${linePath} L ${endX} ${baselineY} L ${startX} ${baselineY} Z`;
+}
+
 function AudienceGrowthPreview({ values }) {
   const chartWidth = SCREEN_WIDTH - 48;
   const chart = useMemo(() => buildChart(values, chartWidth, 132), [values, chartWidth]);
+  const areaPath = useMemo(() => buildAreaPath(values, chart.toX, chart.toY, chart.toY(-44)), [chart, values]);
+  const lastIndex = Math.max(values.length - 1, 0);
 
   return (
     <Svg width={chartWidth} height={132} viewBox={`0 0 ${chartWidth} 132`}>
+      <Defs>
+        <LinearGradient id="audienceGrowthFillPreview" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor="#D500CA" stopOpacity="0.18" />
+          <Stop offset="72%" stopColor="#D500CA" stopOpacity="0.05" />
+          <Stop offset="100%" stopColor="#D500CA" stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Rect x={chart.padLeft - 8} y={chart.padTop - 8} width={chart.chartW + 10} height={chart.chartH + 10} rx={16} fill="#FBFBFD" />
       <Line x1={chart.padLeft} y1={chart.toY(44)} x2={chartWidth - chart.padRight} y2={chart.toY(44)} stroke="#EDEDED" strokeWidth={1} />
       <Line x1={chart.padLeft} y1={chart.toY(0)} x2={chartWidth - chart.padRight} y2={chart.toY(0)} stroke="#EDEDED" strokeWidth={1} />
       <Line x1={chart.padLeft} y1={chart.toY(-44)} x2={chartWidth - chart.padRight} y2={chart.toY(-44)} stroke="#EDEDED" strokeWidth={1} />
+      <Path d={areaPath} fill="url(#audienceGrowthFillPreview)" />
       <Polyline points={chart.points} fill="none" stroke="#D500CA" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+      <Circle
+        cx={chart.toX(lastIndex)}
+        cy={chart.toY(values[lastIndex] || 0)}
+        r={6.5}
+        fill="#FFFFFF"
+        stroke="#D500CA"
+        strokeWidth={3}
+      />
       <SvgText x={4} y={chart.toY(44) + 4} fontSize={11} fontFamily="Inter_400Regular" fill="#8E8E8E">
         44
       </SvgText>
@@ -339,9 +366,11 @@ export default function InsightsAudienceTab() {
           formatDisplay={(n) => Number(n).toLocaleString()}
         />
       ) : (
-        <Text style={styles.bigValue}>6,960</Text>
+        <Text style={styles.bigValue}>{Number(state.followersCount ?? 6960).toLocaleString()}</Text>
       )}
-      <Text style={styles.growthText}>+5.9% <Text style={styles.growthMuted}>since May 23</Text></Text>
+      <Text style={styles.growthText}>
+        {state.followersGrowthChange ?? "+5.9%"} <Text style={styles.growthMuted}>since Jun 23</Text>
+      </Text>
 
       <Text style={[styles.sectionTitle, styles.growthSectionTitle]}>Follower growth over time</Text>
 
@@ -359,10 +388,27 @@ export default function InsightsAudienceTab() {
 
       <View style={styles.chartWrap}>
         <Svg width={chartWidth} height={130} viewBox={`0 0 ${chartWidth} 130`}>
+          <Defs>
+            <LinearGradient id="audienceGrowthFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#D500CA" stopOpacity="0.18" />
+              <Stop offset="72%" stopColor="#D500CA" stopOpacity="0.05" />
+              <Stop offset="100%" stopColor="#D500CA" stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Rect x={chart.padLeft - 8} y={chart.padTop - 8} width={chart.chartW + 10} height={chart.chartH + 10} rx={16} fill="#FBFBFD" />
           <Line x1={chart.padLeft} y1={chart.toY(44)} x2={chartWidth - chart.padRight} y2={chart.toY(44)} stroke="#EDEDED" strokeWidth={1} />
           <Line x1={chart.padLeft} y1={chart.toY(0)} x2={chartWidth - chart.padRight} y2={chart.toY(0)} stroke="#EDEDED" strokeWidth={1} />
           <Line x1={chart.padLeft} y1={chart.toY(-44)} x2={chartWidth - chart.padRight} y2={chart.toY(-44)} stroke="#EDEDED" strokeWidth={1} />
+          <Path d={buildAreaPath(audienceGrowthValues, chart.toX, chart.toY, chart.toY(-44))} fill="url(#audienceGrowthFill)" />
           <Polyline points={chart.points} fill="none" stroke="#D500CA" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+          <Circle
+            cx={chart.toX(audienceGrowthValues.length - 1)}
+            cy={chart.toY(audienceGrowthValues[audienceGrowthValues.length - 1] || 0)}
+            r={6.5}
+            fill="#FFFFFF"
+            stroke="#D500CA"
+            strokeWidth={3}
+          />
 
           <SvgText x={4} y={chart.toY(44) + 4} fontSize={12} fontFamily="Inter_400Regular" fill="#8E8E8E">
             44

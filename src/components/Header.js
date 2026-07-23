@@ -1,25 +1,11 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Keyboard } from "react-native";
-import Svg, { Path } from "react-native-svg";
 import { TrendingUp, MoreVertical } from "lucide-react-native";
 import { useReelData } from "../context/ReelDataContext";
 import EditModeBadge from "./EditModeBadge";
+import BackArrowIcon from "./icons/BackArrowIcon";
 
-function BackArrowIcon({ size = 28, color = "#111111" }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 30 30" fill="none">
-      <Path
-        d="M27 15H7.8M7.8 15L14.6 9.1M7.8 15L14.6 20.9"
-        stroke={color}
-        strokeWidth="1.55"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-export default function Header({ onTitlePress, disableTitlePress = false }) {
+export default function Header({ onTitlePress, onAIPress, disableTitlePress = false }) {
   const { state, dispatch } = useReelData();
 
   const handleMenuPress = () => {
@@ -54,7 +40,7 @@ export default function Header({ onTitlePress, disableTitlePress = false }) {
         <TouchableOpacity
           style={styles.iconBtn}
           activeOpacity={0.7}
-          onPress={() => dispatch({ type: "SET_SCREEN", value: "home" })}
+          onPress={() => dispatch({ type: "GO_BACK" })}
         >
           <BackArrowIcon size={28} color="#111111" />
         </TouchableOpacity>
@@ -83,12 +69,14 @@ export default function Header({ onTitlePress, disableTitlePress = false }) {
 
         <View style={styles.rightIcons}>
           {state.isEditing ? (
-            <TouchableOpacity
-              onPress={handleDone}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.doneBtn}>Done</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity onPress={onAIPress} activeOpacity={0.7} style={styles.aiBtn}>
+                <Text style={styles.aiBtnText}>AI</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDone} activeOpacity={0.7}>
+                <Text style={styles.doneBtn}>Done</Text>
+              </TouchableOpacity>
+            </>
           ) : (
             <>
               <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
@@ -142,6 +130,21 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: "#DD2A7B",
     paddingHorizontal: 12,
+  },
+  aiBtn: {
+    minHeight: 30,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "#111111",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  aiBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
   },
   rightIcons: {
     flexDirection: "row",

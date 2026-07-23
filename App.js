@@ -10,7 +10,8 @@ import {
 } from "@expo-google-fonts/inter";
 import { GrandHotel_400Regular } from "@expo-google-fonts/grand-hotel";
 import { Poppins_400Regular, Poppins_500Medium } from "@expo-google-fonts/poppins";
-import { View, ActivityIndicator } from "react-native";
+import { StyleSheet } from "react-native";
+import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import HomeScreen from "./src/screens/HomeScreen";
@@ -45,7 +46,7 @@ function MainNavigator() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [_fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -56,18 +57,9 @@ export default function App() {
     Poppins_500Medium,
   });
 
-  if (!fontsLoaded) {
-    return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <ActivityIndicator size="large" color="#DD2A7B" />
-        </View>
-      </GestureHandlerRootView>
-    );
-  }
-
   return (
       <GestureHandlerRootView style={{ flex: 1 }}>
+        <ExpoStatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
         <SafeAreaProvider>
           <ReelDataProvider>
             <ProfileDataProvider>
@@ -78,4 +70,6 @@ export default function App() {
       </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({});
 

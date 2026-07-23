@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Keyboard } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "../components/Header";
 import VideoPreviewCard from "../components/VideoPreviewCard";
 import EngagementIconRow from "../components/EngagementIconRow";
 import Tabs from "../components/Tabs";
+import AiAssistantSheet from "../components/AiAssistantSheet";
+import SpinnerArc from "../components/SpinnerArc";
 import OverviewTab from "./OverviewTab";
 import EngagementTab from "./EngagementTab";
 import AudienceTab from "./AudienceTab";
-import SkeletonLoader from "../components/SkeletonLoader";
 import FadeToast from "../components/FadeToast";
 import { useReelData } from "../context/ReelDataContext";
 
@@ -22,21 +23,25 @@ const TAB_SHARED_HEADINGS = {
 
 export default function ReelInsightsScreen() {
   const [activeTab, setActiveTab] = useState("Overview");
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadingPhase, setLoadingPhase] = useState("spinner");
   const [showToast, setShowToast] = useState(false);
+  const [aiVisible, setAiVisible] = useState(false);
   const { state, dispatch } = useReelData();
 
   useEffect(() => {
-    // Simulate data loading for 0.5-1 second
-    const loadingTime = Math.random() * 500 + 500; // Random between 500ms and 1000ms
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, loadingTime);
+    const spinnerTimer = setTimeout(() => {
+      setLoadingPhase("skeleton");
+    }, 450);
+    const contentTimer = setTimeout(() => {
+      setLoadingPhase("ready");
+    }, 1100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(spinnerTimer);
+      clearTimeout(contentTimer);
+    };
   }, []);
 
-  // Show toast when entering edit mode for the first time
   useEffect(() => {
     if (state.isEditing && !showToast) {
       setShowToast(true);
@@ -45,9 +50,8 @@ export default function ReelInsightsScreen() {
       }, 2500);
       return () => clearTimeout(timer);
     }
-  }, [state.isEditing]);
+  }, [showToast, state.isEditing]);
 
-  // Handle tab change with keyboard dismiss
   const handleTabChange = (tab) => {
     Keyboard.dismiss();
     if (tab === "Content" && state.isEditing) {
@@ -63,50 +67,67 @@ export default function ReelInsightsScreen() {
     dispatch({ type: "SET_EDITING", value: true });
   };
 
-  // The video section is always at index 0, so tabs stick at index 1
   const stickyIndex = 1;
+  const isLoading = loadingPhase !== "ready";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      {/* Sticky Header */}
-      <Header onTitlePress={handleTitlePress} disableTitlePress={activeTab === "Content"} />
-
-      {isLoading ? (
-        <SkeletonLoader />
-      ) : (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          stickyHeaderIndices={[stickyIndex]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Video preview + icon row — always shown on all tabs */}
-          <View style={styles.videoSection}>
-            <VideoPreviewCard width={118} showPlayIcon={false} />
-            <EngagementIconRow />
-          </View>
-
-          {/* Tab bar (will stick to top of ScrollView) */}
-          <Tabs tabs={TAB_NAMES} active={activeTab} onChange={handleTabChange} />
-
-          <View style={styles.sharedHeadingWrap}>
-            <Text style={styles.sharedHeading}>{TAB_SHARED_HEADINGS[activeTab]}</Text>
-          </View>
-
-          {/* Tab content */}
-          <View style={styles.tabContent}>
-            {activeTab === "Overview" && <OverviewTab hideTopHeading />}
-            {activeTab === "Engagement" && <EngagementTab hideTopHeading />}
-            {activeTab === "Audience" && <AudienceTab hideTopHeading />}
-          </View>
-        </ScrollView>
-      )}
-
-      <FadeToast
-        message="Tap any number or label to edit"
-        visible={showToast}
+      <Header
+        onTitlePress={handleTitlePress}
+        onAIPress={() => setAiVisible(true)}
+        disableTitlePress={activeTab === "Content"}
       />
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        stickyHeaderIndices={[stickyIndex]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.videoSection}>
+          <VideoPreviewCard width={118} showPlayIcon={false} />
+          <EngagementIconRow />
+        </View>
+
+        <Tabs tabs={TAB_NAMES} active={activeTab} onChange={handleTabChange} />
+
+        <View style={styles.sharedHeadingWrap}>
+          <Text style={styles.sharedHeading}>{TAB_SHARED_HEADINGS[activeTab]}</Text>
+        </View>
+
+        <View style={styles.tabContent}>
+          {activeTab === "Overview" && (
+            <OverviewTab hideTopHeading isLoading={isLoading} loadingPhase={loadingPhase} />
+          )}
+          {activeTab === "Engagement" &&
+            (isLoading ? (
+              <OverviewTab hideTopHeading isLoading loadingPhase={loadingPhase} />
+            ) : (
+              <EngagementTab hideTopHeading />
+            ))}
+          {activeTab === "Audience" &&
+            (isLoading ? (
+              <OverviewTab hideTopHeading isLoading loadingPhase={loadingPhase} />
+            ) : (
+              <AudienceTab hideTopHeading />
+            ))}
+        </View>
+      </ScrollView>
+
+      {loadingPhase === "spinner" ? (
+        <View style={styles.fullScreenLoaderOverlay} pointerEvents="auto">
+          <SpinnerArc
+            size={50}
+            strokeWidth={1}
+            duration={950}
+            segmentColors={["#F4F4F4", "#E5E5E5", "#D0D0D0", "#B9B9B9", "#A0A0A0", "#878787", "#6D6D6D", "#575757", "#404040"]}
+          />
+        </View>
+      ) : null}
+
+      <FadeToast message="Tap any number or label to edit" visible={showToast} />
+      <AiAssistantSheet visible={aiVisible} onClose={() => setAiVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -140,5 +161,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     color: "#111111",
+  },
+  fullScreenLoaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
   },
 });

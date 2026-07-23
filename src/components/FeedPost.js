@@ -1,7 +1,12 @@
 import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import PostHeader from "./PostHeader";
 import PostMedia from "./PostMedia";
+import LikeIcon from "./icons/LikeIcon";
+import CommentIcon from "./icons/CommentIcon";
+import RepostIcon from "./RepostIcon";
+import ShareIcon from "./icons/ShareIcon";
+import SaveIcon from "./icons/SaveIcon";
 import { C } from "../constants/colors";
 
 function formatIntegerWithCommas(value) {
@@ -9,18 +14,12 @@ function formatIntegerWithCommas(value) {
   return n.toLocaleString("en-US");
 }
 
-const LIKE_ICON = require("../../assets/icons/like.png");
-const COMMENT_ICON = require("../../assets/icons/comment.png");
-const REPOST_ICON = require("../../assets/icons/repost.png");
-const SHARE_ICON = require("../../assets/icons/share.png");
-const SAVED_ICON = require("../../assets/icons/saved.png");
-
 function FeedPostFooter({ post }) {
   const reactions = [
-    { icon: LIKE_ICON, value: formatIntegerWithCommas(post.likesCount || 887) },
-    { icon: COMMENT_ICON, value: formatIntegerWithCommas(post.commentsCount || 10) },
-    { icon: REPOST_ICON, value: formatIntegerWithCommas(post.repostsCount || 197) },
-    { icon: SHARE_ICON, value: formatIntegerWithCommas(post.sharesCount || 480) },
+    { value: formatIntegerWithCommas(post.likesCount ?? post.likes ?? 0), icon: LikeIcon },
+    { value: formatIntegerWithCommas(post.commentsCount ?? post.comments ?? 0), icon: CommentIcon },
+    { value: formatIntegerWithCommas(post.repostsCount ?? post.reposts ?? 0), icon: RepostIcon },
+    { value: formatIntegerWithCommas(post.sharesCount ?? post.shares ?? 0), icon: ShareIcon },
   ];
   const caption = post.caption || post.textOverlay || "";
   const timestamp = post.timestamp || "29 June";
@@ -30,13 +29,18 @@ function FeedPostFooter({ post }) {
       <View style={styles.reactionRow}>
         <View style={styles.reactionGroup}>
           {reactions.map((reaction, index) => (
+            (() => {
+              const Icon = reaction.icon;
+              return (
             <View key={`${reaction.value}-${index}`} style={styles.reactionItem}>
-              <Image source={reaction.icon} style={styles.reactionIcon} resizeMode="contain" />
+              {Icon ? <Icon size={23} color={C.black} /> : null}
               <Text style={styles.reactionValue}>{reaction.value}</Text>
             </View>
+              );
+            })()
           ))}
         </View>
-        <Image source={SAVED_ICON} style={styles.bookmarkIcon} resizeMode="contain" />
+        <SaveIcon size={23} color={C.black} />
       </View>
 
       <View style={styles.captionBlock}>
@@ -92,16 +96,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-  },
-  reactionIcon: {
-    width: 23,
-    height: 23,
-    tintColor: C.black,
-  },
-  bookmarkIcon: {
-    width: 23,
-    height: 23,
-    tintColor: C.black,
   },
   reactionValue: {
     fontSize: 12,

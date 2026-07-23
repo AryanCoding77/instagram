@@ -24,14 +24,88 @@ import EditableNumber from "../components/EditableNumber";
 import EditableText from "../components/EditableText";
 import GraphEditorSheet from "../components/GraphEditorSheet";
 import RetentionEditorSheet from "../components/RetentionEditorSheet";
+import SpinnerArc from "../components/SpinnerArc";
 import { useReelData } from "../context/ReelDataContext";
 
-export default function OverviewTab({ hideTopHeading = false }) {
+function InsightsSkeletonBlock({ style }) {
+  return <View style={[styles.skeletonBlock, style]} />;
+}
+
+function OverviewLoadingState({ hideTopHeading = false }) {
+  return (
+    <KeyboardAwareScrollView
+      contentContainerStyle={[styles.container, styles.loadingContainer]}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid={true}
+      enableAutomaticScroll={true}
+      extraScrollHeight={24}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.section}>
+        {!hideTopHeading && <SectionHeading title="Summary" />}
+        <View style={styles.grid}>
+          <View style={styles.gridRow}>
+            <View style={styles.card}>
+              <InsightsSkeletonBlock style={styles.skeletonLabel} />
+              <InsightsSkeletonBlock style={styles.skeletonValueWide} />
+            </View>
+            <View style={styles.card}>
+              <InsightsSkeletonBlock style={styles.skeletonLabel} />
+              <InsightsSkeletonBlock style={styles.skeletonValueTall} />
+            </View>
+          </View>
+          <View style={styles.gridRow}>
+            <View style={styles.card}>
+              <InsightsSkeletonBlock style={styles.skeletonLabel} />
+              <InsightsSkeletonBlock style={styles.skeletonValueWide} />
+            </View>
+            <View style={styles.card}>
+              <InsightsSkeletonBlock style={styles.skeletonLabel} />
+              <InsightsSkeletonBlock style={styles.skeletonValueShort} />
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <SectionHeading title="Views over time" />
+        <View style={styles.skeletonSegmentRow}>
+          <InsightsSkeletonBlock style={styles.skeletonChipActive} />
+          <InsightsSkeletonBlock style={styles.skeletonChip} />
+          <InsightsSkeletonBlock style={styles.skeletonChipWide} />
+        </View>
+        <View style={styles.chartGap} />
+        <View style={styles.chartContainer}>
+          <InsightsSkeletonBlock style={styles.skeletonChart} />
+        </View>
+      </View>
+
+      <View style={styles.loadingSpinnerRow}>
+        <SpinnerArc
+          size={50}
+          strokeWidth={1}
+          duration={950}
+          segmentColors={["#F4F4F4", "#E5E5E5", "#D0D0D0", "#B9B9B9", "#A0A0A0", "#878787", "#6D6D6D", "#575757", "#404040"]}
+        />
+      </View>
+    </KeyboardAwareScrollView>
+  );
+}
+
+export default function OverviewTab({
+  hideTopHeading = false,
+  isLoading = false,
+  loadingPhase = "ready",
+}) {
   const { state, dispatch } = useReelData();
   const [viewsFilter, setViewsFilter] = useState("All");
   const [graphEditorVisible, setGraphEditorVisible] = useState(false);
   const [retentionEditorVisible, setRetentionEditorVisible] = useState(false);
   const [showViewsChart, setShowViewsChart] = useState(true);
+
+  if (isLoading) {
+    return <OverviewLoadingState hideTopHeading={hideTopHeading} />;
+  }
 
   const formatNumber = (num) => {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -308,6 +382,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 4,
   },
+  loadingContainer: {
+    paddingBottom: 22,
+  },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -383,6 +460,27 @@ const styles = StyleSheet.create({
     color: "#7A7A7A",
     marginBottom: 6,
   },
+  skeletonBlock: {
+    backgroundColor: "#F2F2F4",
+    borderRadius: 8,
+  },
+  skeletonLabel: {
+    width: "44%",
+    height: 11,
+    marginBottom: 14,
+  },
+  skeletonValueWide: {
+    width: "58%",
+    height: 18,
+  },
+  skeletonValueTall: {
+    width: "72%",
+    height: 18,
+  },
+  skeletonValueShort: {
+    width: "36%",
+    height: 18,
+  },
   cardValue: {
     fontSize: 18,
     fontFamily: "Inter_600SemiBold",
@@ -418,6 +516,39 @@ const styles = StyleSheet.create({
   },
   chartGap: {
     height: 14,
+  },
+  skeletonSegmentRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 2,
+  },
+  skeletonChipActive: {
+    width: 48,
+    height: 32,
+    borderRadius: 16,
+  },
+  skeletonChip: {
+    width: 88,
+    height: 32,
+    borderRadius: 16,
+  },
+  skeletonChipWide: {
+    width: 116,
+    height: 32,
+    borderRadius: 16,
+  },
+  skeletonChart: {
+    width: "100%",
+    height: 192,
+    borderRadius: 12,
+  },
+  loadingSpinnerRow: {
+    width: "100%",
+    minHeight: 112,
+    paddingTop: 22,
+    paddingBottom: 22,
+    alignItems: "center",
+    justifyContent: "center",
   },
   chartHighlighted: {
     borderWidth: 1.5,

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DEFAULT_PROFILE_DATA } from "../constants/profileData";
+import { mergeReelIntoList, subscribeSelectedPostSync } from "../utils/reelSyncBus";
 
 const STORAGE_KEY = "@profileEditor:data:v1";
 
@@ -21,6 +22,14 @@ function reducer(state, action) {
       return { ...state, isEditing: action.value };
     case "MERGE_PROFILE":
       return { ...state, profile: { ...state.profile, ...action.updates } };
+    case "SYNC_REEL_UPDATE":
+      return {
+        ...state,
+        profile: {
+          ...state.profile,
+          reels: mergeReelIntoList(state.profile?.reels || [], action.reel),
+        },
+      };
     case "SET_PROFILE":
       return { ...state, profile: action.profile || action.data || state.profile };
     case "SET_LAST_LOADED_USERNAME":
@@ -98,6 +107,16 @@ export function ProfileDataProvider({ children }) {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    return subscribeSelectedPostSync((updatedReel) => {
+      if (!updatedReel) {
+        return;
+      }
+
+      dispatch({ type: "SYNC_REEL_UPDATE", reel: updatedReel });
+    });
   }, []);
 
   useEffect(() => {

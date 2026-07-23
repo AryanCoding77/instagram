@@ -1,30 +1,21 @@
 import { useMemo } from "react";
+import { useState } from "react";
 import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Mask, Path, Rect } from "react-native-svg";
 import { ChevronRight, Clock3, GraduationCap, Lightbulb, BadgeCheck, Users, TrendingUp, SquarePlay } from "lucide-react-native";
 import { useReelData } from "../context/ReelDataContext";
 import { useProfileData } from "../context/ProfileDataContext";
-import { formatCount } from "../constants/profileData";
+import { formatCount, formatCompactCountWhole } from "../constants/profileData";
 import { C } from "../constants/colors";
 import ProfileEditorSheet from "../components/ProfileEditorSheet";
+import AiAssistantSheet from "../components/AiAssistantSheet";
+import ClipIcon from "../components/icons/ClipIcon";
+import PinnedIcon from "../components/icons/PinnedIcon";
+import BackArrowIcon from "../components/icons/BackArrowIcon";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THUMB_GAP = 8;
-
-function BackArrowIcon({ size = 28, color = C.black }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 30 30" fill="none">
-      <Path
-        d="M27 15H7.8M7.8 15L14.6 9.1M7.8 15L14.6 20.9"
-        stroke={color}
-        strokeWidth="1.55"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 const INSIGHT_STATS = [
   { label: "Views", value: "643.7K" },
@@ -33,11 +24,13 @@ const INSIGHT_STATS = [
 ];
 
 const THUMBNAILS = [
-  { id: "1", uri: "https://picsum.photos/seed/dashboard-road/300/300", rotate: "-1deg" },
-  { id: "2", uri: "https://picsum.photos/seed/dashboard-city/300/300", rotate: "0deg" },
-  { id: "3", uri: "https://picsum.photos/seed/dashboard-car1/300/300", rotate: "0deg" },
-  { id: "4", uri: "https://picsum.photos/seed/dashboard-car2/300/300", rotate: "1deg", isVideo: true },
+  { id: "1", uri: "https://picsum.photos/seed/dashboard-road/300/300", rotate: "-1deg", badge: "story" },
+  { id: "2", uri: "https://picsum.photos/seed/dashboard-city/300/300", rotate: "0deg", badge: "story" },
+  { id: "3", uri: "https://picsum.photos/seed/dashboard-car1/300/300", rotate: "0deg", badge: "story" },
+  { id: "4", uri: "https://picsum.photos/seed/dashboard-car2/300/300", rotate: "1deg", badge: "reels" },
 ];
+
+const STORY_BADGE_ASSET = require("../../assets/icons/story-icon.png");
 
 function GearIcon({ size = 24, color = "currentColor" }) {
   return (
@@ -63,20 +56,16 @@ function GearIcon({ size = 24, color = "currentColor" }) {
   );
 }
 
-function PlayBadgeIcon({ size = 18 }) {
-  const assetSource = require("../../assets/icons/reels-icon.png");
+function BadgeIcon({ type, size = 18 }) {
+  if (type === "story") {
+    return <Image source={STORY_BADGE_ASSET} style={{ width: size, height: size }} resizeMode="contain" />;
+  }
 
-  return (
-    <Image source={assetSource} style={{ width: size, height: size }} resizeMode="contain" />
-  );
-}
+  if (type === "pinned") {
+    return <PinnedIcon size={size} color="#FFFFFF" />;
+  }
 
-function FirstThumbBadgeIcon({ size = 20 }) {
-  const assetSource = require("../../assets/icons/story-icon.png");
-
-  return (
-    <Image source={assetSource} style={{ width: size, height: size }} resizeMode="contain" />
-  );
+  return <ClipIcon size={size} color="#FFFFFF" />;
 }
 
 const TOOLS = [
@@ -91,9 +80,10 @@ const TOOLS = [
 ];
 
 export default function ProfessionalDashboardScreen() {
-  const { dispatch } = useReelData();
+  const { state, dispatch } = useReelData();
   const { state: profileState, dispatch: profileDispatch } = useProfileData();
   const profile = profileState.profile;
+  const [aiVisible, setAiVisible] = useState(false);
   const thumbSize = useMemo(() => {
     const horizontalPadding = 16 * 2;
     const rowGap = THUMB_GAP * 3;
@@ -103,22 +93,21 @@ export default function ProfessionalDashboardScreen() {
   const insightStats = useMemo(() => {
     return [
       { label: "Views", value: formatCount(profile.dashboardViews || 0) },
-      { label: "Accounts\nreached", value: formatCount(profile.followersCount || 0) },
-      { label: "Net followers", value: `+${Math.max((profile.followersCount || 0) - (profile.followingCount || 0), 0)}` },
+      { label: "Accounts\nreached", value: formatCount(state.accountsReached || profile.followersCount || 0) },
+      { label: "Net followers", value: `+${formatCompactCountWhole(state.netFollowers ?? state.follows ?? 0)}` },
     ];
-  }, [profile.dashboardViews, profile.followersCount, profile.followingCount]);
+  }, [profile.dashboardViews, profile.followersCount, profile.followingCount, state.accountsReached, state.netFollowers, state.follows]);
   const thumbnails = useMemo(() => {
     const reels = Array.isArray(profile.reels) ? profile.reels : [];
     const mapped = reels.slice(0, 4).map((item, index) => ({
       id: item.id || `${index}`,
       uri: item.thumbnailUri || item.videoUrl || THUMBNAILS[index % THUMBNAILS.length].uri,
       rotate: THUMBNAILS[index % THUMBNAILS.length].rotate,
-      isVideo: Boolean(item.videoUrl),
+      badge: item.isPinned || item.pinned ? "pinned" : item.videoUrl ? "reels" : "story",
       source: item,
     }));
     return mapped.length ? mapped : THUMBNAILS;
   }, [profile.reels]);
-
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -126,7 +115,7 @@ export default function ProfessionalDashboardScreen() {
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.iconBtn}
-            onPress={() => dispatch({ type: "SET_SCREEN", value: "profile" })}
+            onPress={() => dispatch({ type: "GO_BACK" })}
           >
             <BackArrowIcon size={28} color={C.black} />
           </TouchableOpacity>
@@ -139,9 +128,16 @@ export default function ProfessionalDashboardScreen() {
             <Text style={styles.title}>Professional dashboard</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity activeOpacity={0.7} style={styles.iconBtn}>
-            <GearIcon size={27} color={C.black} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            {profileState.isEditing ? (
+              <TouchableOpacity activeOpacity={0.7} style={styles.aiBtn} onPress={() => setAiVisible(true)}>
+                <Text style={styles.aiBtnText}>AI</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity activeOpacity={0.7} style={styles.iconBtn}>
+              <GearIcon size={27} color={C.black} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -209,24 +205,23 @@ export default function ProfessionalDashboardScreen() {
                   });
                   dispatch({ type: "SET_SELECTED_POST_URI", uri: selectedPost.thumbnailUri || selectedPost.videoUrl || item.uri });
                   dispatch({ type: "SET_THUMBNAIL", uri: selectedPost.thumbnailUri || selectedPost.videoUrl || item.uri });
-                  dispatch({ type: "UPDATE_FIELD", field: "thumbnailUri", value: selectedPost.thumbnailUri || selectedPost.videoUrl || item.uri });
-                  dispatch({ type: "UPDATE_FIELD", field: "views", value: Number(selectedPost.viewCount) || 0 });
-                  dispatch({ type: "UPDATE_FIELD", field: "likes", value: Number(selectedPost.likesCount) || 0 });
-                  dispatch({ type: "UPDATE_FIELD", field: "comments", value: Number(selectedPost.commentsCount) || 0 });
-                  if (selectedPost.videoDuration) {
-                    dispatch({
-                      type: "UPDATE_FIELD",
-                      field: "videoDuration",
-                      value: Math.round(Number(selectedPost.videoDuration)) || 0,
-                    });
-                  }
+                  dispatch({
+                    type: "APPLY_HISTORICAL_BASELINE",
+                    selectedPost: {
+                      ...selectedPost,
+                      views: selectedPost.viewCount || 0,
+                      likes: selectedPost.likesCount || 0,
+                      comments: selectedPost.commentsCount || 0,
+                    },
+                    sourceReels: profile.reels || [],
+                  });
                 }
                 dispatch({ type: "SET_SCREEN", value: "insights" });
               }}
             >
               <Image source={{ uri: item.uri }} style={[styles.thumbImage, { transform: [{ rotate: item.rotate }] }]} resizeMode="cover" />
               <View style={styles.playBadge}>
-                {index === 0 ? <FirstThumbBadgeIcon size={20} /> : <PlayBadgeIcon size={19} />}
+                <BadgeIcon type={item.badge || THUMBNAILS[index % THUMBNAILS.length].badge} size={index === 0 ? 20 : 19} />
               </View>
             </TouchableOpacity>
           ))}
@@ -258,6 +253,7 @@ export default function ProfessionalDashboardScreen() {
       </ScrollView>
 
       <ProfileEditorSheet />
+      <AiAssistantSheet visible={aiVisible} onClose={() => setAiVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -284,6 +280,25 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  aiBtn: {
+    minHeight: 30,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "#111111",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  aiBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
   },
   title: {
     flex: 1,

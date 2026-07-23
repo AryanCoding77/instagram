@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Video, ResizeMode } from "expo-av";
 import {
-  ArrowLeft,
   MoreVertical,
   VolumeX,
   Music2,
@@ -22,16 +21,9 @@ import { useProfileData } from "../context/ProfileDataContext";
 import { PROFILE_POSTS } from "../constants/profilePosts";
 import { formatCompactCountWhole } from "../constants/profileData";
 import { C } from "../constants/colors";
+import BackArrowIcon from "../components/icons/BackArrowIcon";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-
-const ACTIONS = [
-  { icon: require("../../assets/icons/like.png"), value: "887" },
-  { icon: require("../../assets/icons/comment.png"), value: "10" },
-  { icon: require("../../assets/icons/repost.png"), value: "22" },
-  { icon: require("../../assets/icons/share.png"), value: "921" },
-  { icon: require("../../assets/icons/saved.png"), value: "53" },
-];
 
 const fallbackUri = "https://picsum.photos/seed/profile-post/900/1200";
 const MEDIA_HEIGHT = Math.max(574, SCREEN_HEIGHT - 186);
@@ -43,6 +35,11 @@ function formatCompactCount(value) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
   return `${n}`;
+}
+
+function formatIntegerWithCommas(value) {
+  const n = Math.max(0, Math.round(Number(value) || 0));
+  return n.toLocaleString("en-US");
 }
 
 function PostCard({ item, onViewInsights, defaultUsername, defaultAvatarUri }) {
@@ -60,6 +57,13 @@ function PostCard({ item, onViewInsights, defaultUsername, defaultAvatarUri }) {
   const captionDate = item.date || item.timestamp || "";
   const viewLabel = formatCompactCountWhole(item.views ?? item.viewCount ?? 0);
   const hasVideo = Boolean(item.videoUrl);
+  const reactions = [
+    { icon: require("../../assets/icons/like.png"), value: formatIntegerWithCommas(item.likesCount ?? item.likes ?? 0) },
+    { icon: require("../../assets/icons/comment.png"), value: formatIntegerWithCommas(item.commentsCount ?? item.comments ?? 0) },
+    { icon: require("../../assets/icons/repost.png"), value: formatIntegerWithCommas(item.repostsCount ?? item.reposts ?? 0) },
+    { icon: require("../../assets/icons/share.png"), value: formatIntegerWithCommas(item.sharesCount ?? item.shares ?? 0) },
+    { icon: require("../../assets/icons/saved.png"), value: formatIntegerWithCommas(item.savesCount ?? item.saves ?? 0) },
+  ];
 
   const handleReplay = async () => {
     if (!videoRef.current || !hasVideo) return;
@@ -151,8 +155,8 @@ function PostCard({ item, onViewInsights, defaultUsername, defaultAvatarUri }) {
 
       <View style={styles.reactionRow}>
         <View style={styles.reactionGroup}>
-          {ACTIONS.map((reaction) => (
-            <View key={reaction.value} style={styles.reactionItem}>
+          {reactions.map((reaction, index) => (
+            <View key={`${index}-${reaction.value}`} style={styles.reactionItem}>
               <Image source={reaction.icon} style={styles.reactionIcon} resizeMode="contain" />
               <Text style={styles.reactionValue}>{reaction.value}</Text>
             </View>
@@ -219,9 +223,9 @@ export default function PostsScreen() {
         <TouchableOpacity
           activeOpacity={0.7}
           style={styles.backBtn}
-          onPress={() => dispatch({ type: "SET_SCREEN", value: "profile" })}
+          onPress={() => dispatch({ type: "GO_BACK" })}
         >
-          <ArrowLeft size={28} color={C.black} strokeWidth={2.2} />
+          <BackArrowIcon size={28} color={C.black} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Posts</Text>
       </View>
@@ -257,13 +261,16 @@ export default function PostsScreen() {
               });
               dispatch({ type: "SET_SELECTED_POST_URI", uri: selectedThumb });
               dispatch({ type: "SET_THUMBNAIL", uri: selectedThumb });
-              dispatch({ type: "UPDATE_FIELD", field: "thumbnailUri", value: selectedThumb });
-              dispatch({ type: "UPDATE_FIELD", field: "views", value: Number(item.viewCount) || 0 });
-              dispatch({ type: "UPDATE_FIELD", field: "likes", value: Number(item.likesCount) || 0 });
-              dispatch({ type: "UPDATE_FIELD", field: "comments", value: Number(item.commentsCount) || 0 });
-              if (item.videoDuration) {
-                dispatch({ type: "UPDATE_FIELD", field: "videoDuration", value: Math.round(Number(item.videoDuration)) || 0 });
-              }
+              dispatch({
+                type: "APPLY_HISTORICAL_BASELINE",
+                selectedPost: {
+                  ...item,
+                  views: item.viewCount || 0,
+                  likes: item.likesCount || 0,
+                  comments: item.commentsCount || 0,
+                },
+                sourceReels: posts,
+              });
               dispatch({ type: "SET_SCREEN", value: "insights" });
             }}
           />
